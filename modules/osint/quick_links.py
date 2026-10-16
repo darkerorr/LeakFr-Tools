@@ -2,7 +2,7 @@ from urllib.parse import quote
 import webbrowser
 from rich.table import Table
 from rich.markup import escape
-from core.common import console, demander, titre, BX, C_OSINT, C_GOLD
+from core.common import console, demander, choisir_option, titre, BX, C_OSINT, C_GOLD
 
 def recherche_username_urls():
     titre("LIENS OSINT RAPIDES", C_OSINT)
@@ -27,12 +27,12 @@ def recherche_username_urls():
         ("Namechk", f"https://namechk.com/"),
     ]
     t = Table(box=BX, border_style=C_OSINT, header_style=f"bold {C_OSINT}")
-    t.add_column("#", style=f"bold {C_GOLD}", justify="right")
     t.add_column("Service")
     t.add_column("URL")
-    for i, (nom, url) in enumerate(liens, 1):
-        t.add_row(str(i), nom, escape(url))
+    for nom, url in liens:
+        t.add_row(nom, escape(url))
     console.print(t)
-    choix = demander("N° à ouvrir (Entrée = passer)", defaut="")
-    if choix.isdigit() and 1 <= int(choix) <= len(liens):
-        webbrowser.open(liens[int(choix) - 1][1])
+    choix = choisir_option("OUVRIR UN LIEN", [nom for nom, _ in liens] + ["Terminer"])
+    if choix not in (None, "Terminer"):
+        url = next(url for nom, url in liens if nom == choix)
+        webbrowser.open(url)

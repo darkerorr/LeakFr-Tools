@@ -1,5 +1,5 @@
 from rich.table import Table
-from core.common import console, demander, titre, pause, kv, BX, C_ASTRO, C_GOLD
+from core.common import console, choisir_option, titre, pause, kv, BX, C_ASTRO, C_GOLD
 
 PLANETES = [
     dict(nom="Mercure", rayon="2 439", g=3.70, temp="167", dist="57,9", masse="0,33",
@@ -32,7 +32,6 @@ def planetes():
     while True:
         titre("PLANÈTES DU SYSTÈME SOLAIRE", C_ASTRO)
         t = Table(box=BX, border_style=C_ASTRO, header_style=f"bold {C_ASTRO}")
-        t.add_column("N°", style=f"bold {C_GOLD}", justify="right")
         t.add_column("Planète", style="bold")
         t.add_column("Rayon (km)", justify="right")
         t.add_column("Gravité (m/s²)", justify="right")
@@ -41,14 +40,14 @@ def planetes():
         t.add_column("Jour")
         t.add_column("Année")
         t.add_column("Lunes", justify="right")
-        for i, p in enumerate(PLANETES, 1):
-            t.add_row(str(i), p["nom"], p["rayon"], str(p["g"]).replace(".", ","),
+        for p in PLANETES:
+            t.add_row(p["nom"], p["rayon"], str(p["g"]).replace(".", ","),
                       p["temp"], p["dist"], p["jour"], p["annee"], p["lunes"])
         console.print(t)
-        choix = demander("N° pour une fiche détaillée (Entrée = retour)", defaut="")
-        if not choix.isdigit() or not 1 <= int(choix) <= len(PLANETES):
+        choix = choisir_option("FICHE D'UNE PLANETE", [p["nom"] for p in PLANETES] + ["Retour"])
+        if choix in (None, "Retour"):
             return
-        p = PLANETES[int(choix) - 1]
+        p = next(planet for planet in PLANETES if planet["nom"] == choix)
         console.print()
         kv(f"Fiche : {p['nom']}", [
             ("Masse", f"{p['masse']} x 10^24 kg"),

@@ -1,6 +1,5 @@
 from rich.table import Table
-from rich.prompt import Prompt
-from core.common import console, demander, titre, bad, BX, C_ASTRO, C_GOLD
+from core.common import console, demander, choisir_option, titre, bad, BX, C_ASTRO
 
 def duree_lisible(sec):
     if sec < 60:
@@ -26,15 +25,18 @@ UNITES = {
 
 def convertisseur():
     titre("CONVERTISSEUR D'UNITÉS SPATIALES", C_ASTRO)
-    console.print("[dim]Unités : " + ", ".join(f"{k} ({v[0]})" for k, v in UNITES.items())
+    console.print("[dim]Unités : " + ", ".join(f"{v[0]} ({k})" for k, v in UNITES.items())
                   + "[/]\n")
     try:
         val = float(demander("Valeur").replace(",", ".").replace(" ", ""))
     except ValueError:
         bad("Nombre invalide.")
         return
-    unite = Prompt.ask(f"[bold {C_GOLD}]Unité de départ[/]", choices=list(UNITES),
-                       default="km")
+    libelles_unites = [f"{nom} ({code})" for code, (nom, _) in UNITES.items()]
+    unite_choisie = choisir_option("UNITE DE DEPART", libelles_unites, selection_initiale=1)
+    if unite_choisie is None:
+        return
+    unite = unite_choisie.rsplit("(", 1)[1].rstrip(")")
     metres = val * UNITES[unite][1]
     t = Table(box=BX, border_style=C_ASTRO, header_style=f"bold {C_ASTRO}",
               title=f"{val:g} {unite} en...", title_style=f"bold {C_ASTRO}")

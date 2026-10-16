@@ -2,7 +2,7 @@ from urllib.parse import quote
 import webbrowser
 from rich.table import Table
 from rich.markup import escape
-from core.common import console, demander, titre, BX, C_OSINT, C_GOLD
+from core.common import console, demander, choisir_option, titre, BX, C_OSINT, C_GOLD
 
 def generateur_dorks():
     titre("GÉNÉRATEUR DE GOOGLE DORKS", C_OSINT)
@@ -24,14 +24,13 @@ def generateur_dorks():
         ("Caméras / IoT", f'site:{cible} (inurl:view/index.shtml OR intitle:"webcam")'),
     ]
     t = Table(box=BX, border_style=C_OSINT, header_style=f"bold {C_OSINT}")
-    t.add_column("#", style=f"bold {C_GOLD}", justify="right")
     t.add_column("Usage")
     t.add_column("Dork")
-    for i, (usage, dork) in enumerate(dorks, 1):
-        t.add_row(str(i), usage, escape(dork))
+    for usage, dork in dorks:
+        t.add_row(usage, escape(dork))
     console.print(t)
     console.print("[dim]Utilise ces requêtes sur Google / DuckDuckGo / Bing.[/]")
-    choix = demander("N° pour ouvrir dans le navigateur (Entrée = passer)", defaut="")
-    if choix.isdigit() and 1 <= int(choix) <= len(dorks):
-        q = quote(dorks[int(choix) - 1][1])
-        webbrowser.open(f"https://www.google.com/search?q={q}")
+    choix = choisir_option("OUVRIR UNE REQUETE", [usage for usage, _ in dorks] + ["Terminer"])
+    if choix not in (None, "Terminer"):
+        requete = next(dork for usage, dork in dorks if usage == choix)
+        webbrowser.open(f"https://www.google.com/search?q={quote(requete)}")

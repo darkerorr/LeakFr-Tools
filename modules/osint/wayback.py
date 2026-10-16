@@ -1,21 +1,21 @@
 import re
 from datetime import datetime
 import requests
-from rich.prompt import Prompt
 from rich.markup import escape
-from core.common import console, demander, titre, bad, attente, nettoyer_cible, afficher_pagine, C_GOLD, HEADERS
+from core.common import console, demander, choisir_option, titre, bad, attente, nettoyer_cible, afficher_pagine, C_GOLD, HEADERS
 
 def wayback():
     cible = nettoyer_cible(demander("URL ou domaine (ex: example.com)"))
     if not cible:
         return
-    console.print(f"\n  [bold {C_GOLD}]1[/]  Cette page exacte (toutes les versions archivées)")
-    console.print(f"  [bold {C_GOLD}]2[/]  Tout le domaine (pages uniques, code 200)\n")
-    mode = Prompt.ask(f"[bold {C_GOLD}]Mode[/]", choices=["1", "2"], default="1")
+    modes = ["Cette page exacte (toutes les versions archivées)", "Tout le domaine (pages uniques, code 200)"]
+    mode = choisir_option("ETENDUE DES ARCHIVES", modes)
+    if mode is None:
+        return
 
     params = {"url": cible, "output": "json",
               "fl": "timestamp,original,statuscode,mimetype", "limit": 10000}
-    if mode == "1":
+    if mode == modes[0]:
         params["collapse"] = "digest"
     else:
         params.update({"matchType": "domain", "collapse": "urlkey",

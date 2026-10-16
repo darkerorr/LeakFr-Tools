@@ -8,7 +8,7 @@ import time
 import webbrowser
 import requests
 from rich import box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.theme import Theme
 from rich.style import Style
 from rich.live import Live
@@ -169,6 +169,83 @@ def demander(label, defaut=None):
     if defaut is None:
         return Prompt.ask(f"[bold {C_GOLD}]{label}[/]").strip()
     return Prompt.ask(f"[bold {C_GOLD}]{label}[/]", default=defaut, show_default=False).strip()
+
+
+def choisir_option(titre_menu, options, selection_initiale=0):
+    """Affiche une sélection au clavier (flèches/Entrée), sans index numérique."""
+    options = list(options)
+    if not options:
+        return None
+    interactif = INTERACTIF and sys.stdin.isatty() and sys.stdout.isatty()
+    if interactif:
+        import os
+        import time
+        fd = sys.stdin.fileno()
+        windows = os.name == "nt"
+        if not windows:
+            import select
+            import termios
+            import tty
+            ancien_mode = termios.tcgetattr(fd)
+            tty.setcbreak(fd)
+        index = max(0, min(selection_initiale, len(options) - 1))
+        try:
+            with Live(console=console, screen=True, auto_refresh=False) as live:
+                while True:
+                    lignes = [Text(str(titre_menu), style=f"bold {C_GOLD}"),
+                              Text("Flèches haut/bas · Entrée valider · Échap annuler", style="dim"),
+                              Text("")]
+                    for i, option in enumerate(options):
+                        prefixe = "> " if i == index else "  "
+                        style = f"bold black on {C_GOLD}" if i == index else "white"
+                        lignes.append(Text(prefixe + str(option), style=style))
+                    live.update(Panel(Group(*lignes), border_style=C_GOLD, box=BX), refresh=True)
+                    if windows:
+                        import msvcrt
+                        if not msvcrt.kbhit():
+                            time.sleep(0.05)
+                            continue
+                        touche = msvcrt.getwch()
+                        if touche in ("\x00", "\xe0"):
+                            touche = {"H": "UP", "P": "DOWN", "K": "LEFT", "M": "RIGHT"}.get(msvcrt.getwch(), "")
+                        elif touche in ("\r", "\n"):
+                            touche = "ENTER"
+                        elif touche == "\x1b":
+                            touche = "ESC"
+                    else:
+                        ready, _, _ = select.select([fd], [], [], 0.05)
+                        if not ready:
+                            continue
+                        touche = os.read(fd, 1).decode(errors="ignore")
+                        if touche == "\x1b":
+                            ready, _, _ = select.select([fd], [], [], 0.03)
+                            if ready:
+                                sequence = os.read(fd, 2).decode(errors="ignore")
+                                touche = {"[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT"}.get(sequence, "ESC")
+                            else:
+                                touche = "ESC"
+                        elif touche in ("\r", "\n"):
+                            touche = "ENTER"
+                        elif touche == "\x03":
+                            touche = "QUIT"
+                    if touche == "UP":
+                        index = (index - 1) % len(options)
+                    elif touche == "DOWN":
+                        index = (index + 1) % len(options)
+                    elif touche == "ENTER":
+                        return options[index]
+                    elif touche in ("ESC", "LEFT", "QUIT"):
+                        return None
+        finally:
+            if not windows:
+                termios.tcsetattr(fd, termios.TCSADRAIN, ancien_mode)
+
+    console.print(Panel("\n".join(str(option) for option in options),
+                        title=str(titre_menu), border_style=C_GOLD))
+    reponse = Prompt.ask("Tape le libellé voulu (ou q pour annuler)").strip()
+    if reponse.casefold() in {"q", "quit", "annuler"}:
+        return None
+    return next((option for option in options if str(option).casefold() == reponse.casefold()), None)
 
 def kv(titre_txt, lignes, couleur=C_RECON):
     t = Table(title=titre_txt, box=BX, border_style=couleur, title_style=f"bold {couleur}", show_header=False, padding=(0, 1))

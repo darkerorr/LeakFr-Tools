@@ -1,7 +1,7 @@
 """Calcul de différences de dates sans dépendance externe."""
 from datetime import datetime, timedelta
 
-from core.common import C_UTIL, demander, kv, titre, warn
+from core.common import C_UTIL, demander, choisir_option, kv, titre, warn
 
 
 def _parse_date(value):
@@ -15,9 +15,12 @@ def _parse_date(value):
 
 def calculer_dates():
     titre("CALCULATEUR DE DATES", C_UTIL)
-    mode = demander("Mode : 1 difference entre dates, 2 ajouter/retirer des jours", defaut="1")
+    modes = ["Calculer la différence entre deux dates", "Ajouter ou retirer des jours"]
+    mode = choisir_option("MODE DE CALCUL", modes)
+    if mode is None:
+        return
     try:
-        if mode == "1":
+        if mode == modes[0]:
             debut = _parse_date(demander("Premiere date (AAAA-MM-JJ ou JJ/MM/AAAA)"))
             fin = _parse_date(demander("Seconde date (AAAA-MM-JJ ou JJ/MM/AAAA)"))
             delta = (fin - debut).days
@@ -26,7 +29,7 @@ def calculer_dates():
                 ("Jours signes", delta), ("Jours absolus", abs(delta)),
                 ("Semaines completes", abs(delta) // 7),
             ], C_UTIL)
-        elif mode == "2":
+        elif mode == modes[1]:
             origine = _parse_date(demander("Date de depart (AAAA-MM-JJ ou JJ/MM/AAAA)"))
             jours_txt = demander("Nombre de jours (negatif pour retrancher)")
             jours = int(jours_txt)
@@ -35,7 +38,5 @@ def calculer_dates():
                 ("Depart", origine.isoformat()), ("Decalage (jours)", jours),
                 ("Resultat", resultat.isoformat()), ("Jour de semaine", resultat.strftime("%A")),
             ], C_UTIL)
-        else:
-            warn("Mode inconnu : choisissez 1 ou 2.")
     except (ValueError, OverflowError) as exc:
         warn(f"Saisie invalide : {exc}")

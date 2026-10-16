@@ -146,39 +146,138 @@ def test_visual_settings_are_persistent_and_apply_to_rendered_menu(monkeypatch):
     main._appliquer_configuration_visuelle()
 
 
-def test_menu_entry_into_settings_does_not_raise_title_error(monkeypatch):
+def test_menu_settings_key_opens_settings_and_returns_to_main_menu(monkeypatch):
     keys = iter(["s", "q"])
+    transitions = []
 
     class FakeTouches:
         def __enter__(self):
+            transitions.append("keyboard-enter")
             return self
         def __exit__(self, *args):
+            transitions.append("keyboard-exit")
             return False
         def lire(self, timeout=0.04):
             return next(keys)
 
+    class FakeLive:
+        def __enter__(self):
+            transitions.append("main-start")
+            return self
+        def __exit__(self, *args):
+            transitions.append("main-exit")
+            return False
+        def update(self, *_args, **_kwargs):
+            pass
+        def stop(self):
+            transitions.append("main-stop")
+        def start(self):
+            transitions.append("main-resume")
+
     monkeypatch.setattr(main, "Touches", FakeTouches)
-    monkeypatch.setattr(main, "_intro_ascii", lambda _config: None)
-    monkeypatch.setattr(main, "_ecran_parametres", lambda: None)
+    monkeypatch.setattr(main, "Live", lambda **_kwargs: FakeLive())
+    monkeypatch.setattr(main, "_ecran_parametres", lambda: transitions.append("settings-open"))
     monkeypatch.setattr(main.console, "clear", lambda: None)
-    main.menu_interactif()
+    assert main.menu_interactif() == "0"
+    assert transitions == [
+        "keyboard-enter", "main-start", "keyboard-exit", "main-stop",
+        "settings-open", "keyboard-enter", "main-resume", "main-exit", "keyboard-exit",
+    ]
 
 
-def test_settings_screen_runs_and_has_expected_options(monkeypatch):
+def test_arrow_selector_moves_and_confirms_without_numeric_input(monkeypatch):
     import core.common as common_ui
-    from rich.prompt import Prompt
+    import os
+    import select
+    import termios
+    import tty
 
-    output = io.StringIO()
-    monkeypatch.setattr(common_ui.console, "file", output)
+    class FakeTTY:
+        def isatty(self):
+            return True
+        def fileno(self):
+            return 73
+
+    class FakeLive:
+        def __init__(self, **_kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return False
+        def update(self, *_args, **_kwargs):
+            pass
+
+    keyboard = iter([b"\x1b", b"[B", b"\r"])
+    monkeypatch.setattr(common_ui, "INTERACTIF", True)
+    monkeypatch.setattr(common_ui.sys, "stdin", FakeTTY())
+    monkeypatch.setattr(common_ui.sys, "stdout", FakeTTY())
+    monkeypatch.setattr(common_ui, "Live", FakeLive)
+    monkeypatch.setattr(select, "select", lambda *_args, **_kwargs: ([73], [], []))
+    monkeypatch.setattr(os, "read", lambda _fd, _size: next(keyboard))
+    monkeypatch.setattr(termios, "tcgetattr", lambda _fd: [])
+    monkeypatch.setattr(termios, "tcsetattr", lambda *_args: None)
+    monkeypatch.setattr(tty, "setcbreak", lambda _fd: None)
+
+    assert common_ui.choisir_option("Test", ["Premier", "Second"]) == "Second"
+
+
+def test_settings_screen_opens_submenu_and_applies_selection(monkeypatch):
+    import core.common as common_ui
+    from core.config import DEFAUTS
+
+    monkeypatch.setattr(main, "_CONFIG", deepcopy(DEFAUTS))
     monkeypatch.setattr(main.console, "clear", lambda: None)
-    monkeypatch.setattr(Prompt, "ask", lambda *args, **kwargs: "0")
-    monkeypatch.setattr(common_ui, "pause", lambda: None)
+    monkeypatch.setattr(main, "sauvegarder", lambda _config: None)
+    monkeypatch.setattr(main, "pause", lambda: None)
+    choices = iter(["Style d'interface", "Compact", "Retour au menu principal"])
+    seen_menus = []
+    def choose(label, options, **_kwargs):
+        seen_menus.append((label, list(options)))
+        return next(choices)
+    monkeypatch.setattr(main, "selectionner_option", choose)
     main._ecran_parametres()
-    rendered = output.getvalue()
-    assert "PARAMETRES" in rendered
-    assert "Style d'interface" in rendered
-    assert "Couleur du texte shell" in rendered
-    assert "Personnaliser les couleurs du theme" in rendered
+
+    assert main._CONFIG["apparence"]["style_interface"] == "compact"
+    assert common_ui.obtenir_config_ui()["style_interface"] == "compact"
+    assert seen_menus[0][0] == "PARAMETRES"
+    assert "Style d'interface" in seen_menus[0][1]
+    assert seen_menus[1] == ("STYLE D'INTERFACE", ["Dashboard split", "Classique", "Compact"])
+
+
+def test_encode_decode_tool_executes_selected_mode(monkeypatch):
+    module = importlib.import_module("modules.utils.encode_decode")
+    output = {}
+    monkeypatch.setattr(module, "choisir_option", lambda *_args, **_kwargs: "Base64 encode")
+    monkeypatch.setattr(module, "demander", lambda _label: "hello")
+    monkeypatch.setattr(module, "kv", lambda _title, rows, _color: output.update(rows))
+    module.encode_decode()
+    assert output["Sortie"] == "aGVsbG8="
+
+
+def test_date_calculator_executes_selected_mode_with_local_input(monkeypatch):
+    module = importlib.import_module("modules.utils.date_calculator")
+    output = {}
+    answers = iter(["2026-01-01", "2026-01-12"])
+    monkeypatch.setattr(module, "choisir_option", lambda _title, options: options[0])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(answers))
+    monkeypatch.setattr(module, "kv", lambda title, rows, _color: output.update({"title": title, **dict(rows)}))
+    module.calculer_dates()
+    assert output["Jours signes"] == 11
+    assert output["Semaines completes"] == 1
+
+
+def test_wordlist_generator_runs_and_writes_requested_file(monkeypatch, tmp_path):
+    module = importlib.import_module("modules.pentest.wordlist_generator")
+    destination = tmp_path / "wordlist.txt"
+    answers = iter(["test", str(destination)])
+    monkeypatch.setattr(module, "choisir_option", lambda *_args, **_kwargs: "Mutations d'un mot")
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(answers))
+    module.wordlist_gen()
+    generated = destination.read_text(encoding="utf-8").splitlines()
+    assert "test" in generated
+    assert "test123" in generated
+    assert len(generated) > 10
 
 
 def test_concurrent_modules_import_the_executor_explicitly():

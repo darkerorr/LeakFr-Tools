@@ -18,7 +18,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 from core.common import (
-    console, titre, ok, bad, warn, demander, attente, pause, kv,
+    console, titre, ok, bad, warn, demander, choisir_option, attente, pause, kv,
     BX, C_DISCORD, C_GOLD, DISCORD_EPOCH, warn_pentest
 )
 from core.config import EXPORTS_DIR
@@ -188,7 +188,7 @@ def _render_right_panel(selected_guild_id, guild_info):
         elements.append(
             Text(
                 "Aucun serveur cible.\n\n"
-                "Utilisez [2] pour analyser un serveur,\n"
+                "Choisissez « Cibler un serveur » pour l'analyser,\n"
                 "inspecter ses salons et tester les permissions.",
                 style="dim",
             )
@@ -205,15 +205,11 @@ def _render_right_panel(selected_guild_id, guild_info):
 
 def _render_footer():
     """Barre d'actions en bas du panel."""
-    actions = [
-        ("1", "Gateway"), ("2", "Cible"), ("3", "Presence"),
-        ("4", "Salons"), ("5", "Roles"), ("6", "Webhooks"),
-        ("7", "Message"), ("8", "Actualiser"), ("9", "Permissions"),
-        ("10", "Pseudo"), ("11", "Invitation"), ("12", "Export JSON"),
-        ("0", "Quitter"),
+    labels = [
+        "Gateway", "Cible", "Présence", "Salons", "Rôles", "Webhooks",
+        "Message", "Actualiser", "Permissions", "Surnom", "Invitation", "Export JSON", "Quitter",
     ]
-    parts = [Text.assemble((f"[{key}]", f"bold {C_DISCORD}"), (f" {label}", "bold white"))
-             for key, label in actions]
+    parts = [Text(label, style="bold white") for label in labels]
     return Panel(Align.center(Group(*parts)), box=BX, border_style="grey50")
 
 
@@ -360,20 +356,27 @@ def bot_panel():
 
     selected_guild_id = ""
     guild_info = {"channels": [], "roles": [], "members": [], "guild": None}
+    actions = [
+        "Démarrer / arrêter le bot", "Cibler un serveur", "Modifier la présence",
+        "Lister ou créer un salon", "Voir les rôles et permissions", "Lister les webhooks",
+        "Envoyer un message", "Actualiser les données", "Auditer les permissions effectives",
+        "Modifier le surnom du bot", "Créer une invitation temporaire", "Exporter l'audit JSON",
+        "Quitter le panel",
+    ]
 
     while True:
         console.clear()
         panel_layout = _render_bot_panel(bot_data, guilds, selected_guild_id, guild_info, gateway_client)
         console.print(panel_layout)
 
-        choix = Prompt.ask("\n[bold gold1]Panel Bot >[/]", default="0").strip()
+        choix = choisir_option("ACTIONS DU PANEL BOT", actions)
 
-        if choix in ("0", "q", "exit", "quit"):
+        if choix in (None, "Quitter le panel"):
             gateway_client.stop()
             ok("Bot deconnecte de la Gateway Discord.")
             break
 
-        elif choix == "1":
+        elif choix == "Démarrer / arrêter le bot":
             if gateway_client.connected:
                 if Confirm.ask("Le bot est connecte. Voulez-vous l'eteindre ?", default=True):
                     gateway_client.stop()
@@ -390,49 +393,46 @@ def bot_panel():
                     warn("La connexion n'a pas abouti. Consultez les evenements Gateway dans le panneau.")
             pause()
 
-        elif choix == "2":
-            if guilds:
-                console.print("\n[bold]Serveurs rejoints par ce bot :[/]")
-                for i, g in enumerate(guilds, 1):
-                    console.print(f"  [{i}] {g.get('name')} (ID: {g.get('id')})")
-            gid_input = demander("Guild ID a cibler (ou numero de la liste)")
-            if gid_input.isdigit() and 1 <= int(gid_input) <= len(guilds):
-                selected_guild_id = guilds[int(gid_input) - 1].get("id")
-            elif _valid_snowflake(gid_input):
-                selected_guild_id = gid_input
-            else:
-                warn("ID invalide.")
-                pause()
+        elif choix == "Cibler un serveur":
+            guild_labels = [f"{guild.get('name', 'Serveur sans nom')} ({guild.get('id')})" for guild in guilds]
+            cible = choisir_option("SERVEUR A AUDITER", guild_labels + ["Saisir un ID de serveur", "Retour"])
+            if cible in (None, "Retour"):
                 continue
+            if cible == "Saisir un ID de serveur":
+                selected_guild_id = demander("ID du serveur Discord")
+                if not _valid_snowflake(selected_guild_id):
+                    warn("ID invalide.")
+                    pause()
+                    continue
+            else:
+                selected_guild_id = guilds[guild_labels.index(cible)].get("id")
 
             with attente(f"Audit du serveur {selected_guild_id}"):
                 guild_info = _fetch_guild_details(headers, selected_guild_id)
             ok("Donnees du serveur actualisees.")
             pause()
 
-        elif choix == "3":
+        elif choix == "Modifier la présence":
             console.print("\n[bold]Statut de presence :[/]")
-            console.print("  [1] En ligne (Online)")
-            console.print("  [2] Inactif (Idle)")
-            console.print("  [3] Ne pas deranger (DND)")
-            console.print("  [4] Invisible (Offline)")
-            st_choice = Prompt.ask("Choix", choices=["1", "2", "3", "4"], default="1")
-            status_code, status_name, _ = STATUS_PRESETS[st_choice]
+            statuts = ["En ligne (Online)", "Inactif (Idle)", "Ne pas déranger (DND)", "Invisible (Offline)"]
+            st_choice = choisir_option("STATUT DE PRESENCE", statuts)
+            if st_choice is None:
+                continue
+            status_code, status_name, _ = STATUS_PRESETS[str(statuts.index(st_choice) + 1)]
 
-            console.print("\n[bold]Type d'activite :[/]")
-            console.print("  [1] Joue a (Playing)")
-            console.print("  [2] En Stream (Streaming)")
-            console.print("  [3] Ecoute (Listening)")
-            console.print("  [4] Regarde (Watching)")
-            console.print("  [5] Participe a (Competing)")
-            console.print("  [0] Aucune activite")
-            act_choice = Prompt.ask("Type", choices=["0", "1", "2", "3", "4", "5"], default="1")
+            activites = ["Joue à (Playing)", "En Stream (Streaming)", "Écoute (Listening)",
+                         "Regarde (Watching)", "Participe à (Competing)", "Aucune activité"]
+            act_choice = choisir_option("TYPE D'ACTIVITE", activites)
+            if act_choice is None:
+                continue
+            act_index = activites.index(act_choice)
+            act_code = "0" if act_index == 5 else str(act_index + 1)
 
             act_name = ""
             stream_url = ""
             act_type = 0
-            if act_choice != "0":
-                act_type, _, _ = ACTIVITY_PRESETS[act_choice]
+            if act_code != "0":
+                act_type, _, _ = ACTIVITY_PRESETS[act_code]
                 act_name = demander("Texte de l'activite", defaut="Auditing Server")
                 if act_type == 1:
                     stream_url = demander("URL du Stream", defaut="https://twitch.tv/discord")
@@ -441,12 +441,12 @@ def bot_panel():
                 gateway_client.update_presence(status=status_code, activity_name=act_name, activity_type=act_type, stream_url=stream_url)
                 ok(f"Presence envoyee : {status_name} | {act_name or 'Sans texte'}")
             else:
-                warn("Le bot est hors-ligne. Demarrez-le avec [1] pour modifier la presence.")
+                warn("Le bot est hors-ligne. Choisissez « Démarrer / arrêter le bot » pour modifier la présence.")
             pause()
 
-        elif choix == "4":
+        elif choix == "Lister ou créer un salon":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             channels = guild_info.get("channels", [])
@@ -463,10 +463,8 @@ def bot_panel():
                 console.print(t)
 
                 console.print("\n[bold]Options :[/]")
-                console.print("  [1] Creer un salon d'audit")
-                console.print("  [0] Retour")
-                c_opt = Prompt.ask("Choix", choices=["0", "1"], default="0")
-                if c_opt == "1":
+                c_opt = choisir_option("ACTION SALON", ["Créer un salon d'audit", "Retour"])
+                if c_opt == "Créer un salon d'audit":
                     try:
                         c_name = _slug_channel_name(demander("Nom du nouveau salon", defaut="audit-security"))
                         if Confirm.ask(f"Confirmer la creation du salon '{c_name}' ?", default=False):
@@ -486,9 +484,9 @@ def bot_panel():
                         bad(f"Creation impossible : {exc}")
             pause()
 
-        elif choix == "5":
+        elif choix == "Voir les rôles et permissions":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             roles = guild_info.get("roles", [])
@@ -507,9 +505,9 @@ def bot_panel():
                 console.print(t)
             pause()
 
-        elif choix == "6":
+        elif choix == "Lister les webhooks":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             try:
@@ -537,10 +535,10 @@ def bot_panel():
                 bad(f"Echec ({rw.status_code}) : permission 'MANAGE_WEBHOOKS' requise.")
             pause()
 
-        elif choix == "7":
+        elif choix == "Envoyer un message":
 
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             ch_id = demander("ID du salon textuel cible")
@@ -564,7 +562,7 @@ def bot_panel():
                     bad(f"Erreur reseau : {exc}")
             pause()
 
-        elif choix == "8":
+        elif choix == "Actualiser les données":
             try:
                 with attente("Actualisation des donnees Discord"):
                     guilds = _fetch_bot_guilds(headers)
@@ -575,9 +573,9 @@ def bot_panel():
                 bad(f"Actualisation impossible : {exc}")
             pause()
 
-        elif choix == "9":
+        elif choix == "Auditer les permissions effectives":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             try:
@@ -596,9 +594,9 @@ def bot_panel():
                 bad(f"Audit des permissions impossible : {exc}")
             pause()
 
-        elif choix == "10":
+        elif choix == "Modifier le surnom du bot":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             nickname = demander("Nouveau surnom du bot (vide pour le retirer)", defaut="")
@@ -617,9 +615,9 @@ def bot_panel():
                     bad(f"Erreur reseau : {exc}")
             pause()
 
-        elif choix == "11":
+        elif choix == "Créer une invitation temporaire":
             if not selected_guild_id:
-                warn("Ciblez d'abord un serveur (option [2]).")
+                warn("Ciblez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             channel_id = demander("ID du salon textuel pour l'invitation")
@@ -641,9 +639,9 @@ def bot_panel():
                     bad(f"Creation impossible : {exc}")
             pause()
 
-        elif choix == "12":
+        elif choix == "Exporter l'audit JSON":
             if not selected_guild_id or not guild_info.get("guild"):
-                warn("Ciblez et chargez d'abord un serveur (option [2]).")
+                warn("Ciblez et chargez d'abord un serveur avec « Cibler un serveur ».")
                 pause()
                 continue
             try:

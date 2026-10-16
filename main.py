@@ -28,7 +28,7 @@ from rich.text import Text
 
 # Core & Helpers
 from core.common import (
-    console, arc, texte_arc, bad, warn, ok, BX, UNICODE, INTERACTIF,
+    console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW,
     BANNER, C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
     initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause
@@ -97,6 +97,11 @@ def _appliquer_configuration_visuelle():
 _appliquer_configuration_visuelle()
 
 
+def selectionner_option(titre_menu, options, selection_initiale=0):
+    """Sélection unifiée pour les menus et leurs sous-menus."""
+    return choisir_option(titre_menu, options, selection_initiale)
+
+
 def _ecran_parametres():
     """Menu de parametres persistant."""
     global _CONFIG
@@ -107,8 +112,7 @@ def _ecran_parametres():
         titre("PARAMETRES", C_GOLD)
 
         t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        t.add_column("N.", style="bold", width=3)
-        t.add_column("Option", width=40)
+        t.add_column("Reglage", width=40)
         t.add_column("Valeur actuelle")
 
         app = _CONFIG.get("apparence", {})
@@ -116,63 +120,75 @@ def _ecran_parametres():
 
         styles = {"dashboard": "Dashboard split", "classique": "Classique", "compact": "Compact"}
         largeurs = {"auto": "Automatique", "large": "Large", "etroit": "Etroit"}
-        t.add_row("1", "Palette de couleurs", nommer_theme(app.get("theme_actif", "original")))
-        t.add_row("2", "Style d'interface", styles.get(app.get("style_interface"), "Dashboard split"))
-        t.add_row("3", "Couleur d'accent", app.get("couleur_accent") or "Auto (palette)")
-        t.add_row("4", "Couleur du texte shell", app.get("couleur_shell_texte", "#ffffff"))
-        t.add_row("5", "Fond shell (sorties Rich)", app.get("couleur_shell_fond", "#10131c"))
-        t.add_row("6", "Largeur du menu", largeurs.get(app.get("largeur_menu"), "Automatique"))
-        t.add_row("7", "Panneau lateral", str(app.get("afficher_panneau_lateral", True)))
-        t.add_row("8", "Badges de categories", str(app.get("afficher_badges_categories", True)))
-        t.add_row("9", "Banniere de demarrage", str(app.get("banniere_demarrage", True)))
-        t.add_row("10", "Animations", str(app.get("animations", True)))
-        t.add_row("11", "Timeout reseau (s)", str(reseau.get("timeout", 8)))
-        t.add_row("12", "Restaurer parametres par defaut", "")
-        t.add_row("13", "Personnaliser les couleurs du theme", "")
-        t.add_row("0", "Retour au menu principal", "")
+        reglages = [
+            "Palette de couleurs", "Style d'interface", "Couleur d'accent",
+            "Couleur du texte shell", "Fond shell", "Largeur du menu",
+            "Panneau lateral", "Badges de categories", "Banniere de demarrage",
+            "Animations", "Timeout reseau", "Restaurer les parametres par defaut",
+            "Personnaliser les couleurs du theme", "Retour au menu principal",
+        ]
+        t.add_row("Palette de couleurs", nommer_theme(app.get("theme_actif", "original")))
+        t.add_row("Style d'interface", styles.get(app.get("style_interface"), "Dashboard split"))
+        t.add_row("Couleur d'accent", app.get("couleur_accent") or "Auto (palette)")
+        t.add_row("Couleur du texte shell", app.get("couleur_shell_texte", "#ffffff"))
+        t.add_row("Fond shell (sorties Rich)", app.get("couleur_shell_fond", "#10131c"))
+        t.add_row("Largeur du menu", largeurs.get(app.get("largeur_menu"), "Automatique"))
+        t.add_row("Panneau lateral", str(app.get("afficher_panneau_lateral", True)))
+        t.add_row("Badges de categories", str(app.get("afficher_badges_categories", True)))
+        t.add_row("Banniere de demarrage", str(app.get("banniere_demarrage", True)))
+        t.add_row("Animations", str(app.get("animations", True)))
+        t.add_row("Timeout reseau (s)", str(reseau.get("timeout", 8)))
+        t.add_row("Restaurer les parametres par defaut", "")
+        t.add_row("Personnaliser les couleurs du theme", "")
+        t.add_row("Retour au menu principal", "")
 
         console.print(t)
-        c = Prompt.ask(f"[bold {C_GOLD}]Parametres {ARROW}[/]", default="0").strip()
-
-        if c == "0":
+        c = selectionner_option("PARAMETRES", reglages)
+        if c is None or c == "Retour au menu principal":
             break
-        elif c == "1":
+        elif c == "Palette de couleurs":
             _menu_themes()
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
-        elif c == "13":
+        elif c == "Personnaliser les couleurs du theme":
             _menu_palette_personnalisee()
             pause()
             continue
-        elif c == "2":
-            console.print("[1] Dashboard split  [2] Classique  [3] Compact")
-            choix = Prompt.ask("Style", choices=["1", "2", "3"], default="1")
-            _CONFIG["apparence"]["style_interface"] = {"1": "dashboard", "2": "classique", "3": "compact"}[choix]
-        elif c == "3":
+        elif c == "Style d'interface":
+            choix = selectionner_option("STYLE D'INTERFACE", ["Dashboard split", "Classique", "Compact"])
+            if choix is None:
+                continue
+            _CONFIG["apparence"]["style_interface"] = {
+                "Dashboard split": "dashboard", "Classique": "classique", "Compact": "compact"
+            }[choix]
+        elif c == "Couleur d'accent":
             _configurer_couleur("couleur_accent", "Accent (hex #RRGGBB ou vide pour Auto)", optionnelle=True)
             pause()
             continue
-        elif c == "4":
+        elif c == "Couleur du texte shell":
             _configurer_couleur("couleur_shell_texte", "Couleur du texte shell")
             pause()
             continue
-        elif c == "5":
+        elif c == "Fond shell":
             _configurer_couleur("couleur_shell_fond", "Couleur de fond shell")
             pause()
             continue
-        elif c == "6":
-            console.print("[1] Automatique  [2] Large  [3] Etroit")
-            choix = Prompt.ask("Largeur", choices=["1", "2", "3"], default="1")
-            _CONFIG["apparence"]["largeur_menu"] = {"1": "auto", "2": "large", "3": "etroit"}[choix]
-        elif c == "7":
+        elif c == "Largeur du menu":
+            choix = selectionner_option("LARGEUR DU MENU", ["Automatique", "Large", "Etroit"])
+            if choix is None:
+                continue
+            _CONFIG["apparence"]["largeur_menu"] = {
+                "Automatique": "auto", "Large": "large", "Etroit": "etroit"
+            }[choix]
+        elif c == "Panneau lateral":
             app["afficher_panneau_lateral"] = not app.get("afficher_panneau_lateral", True)
-        elif c == "8":
+        elif c == "Badges de categories":
             app["afficher_badges_categories"] = not app.get("afficher_badges_categories", True)
-        elif c == "9":
+        elif c == "Banniere de demarrage":
             app["banniere_demarrage"] = not app.get("banniere_demarrage", True)
-        elif c == "10":
+        elif c == "Animations":
             app["animations"] = not app.get("animations", True)
-        elif c == "11":
+        elif c == "Timeout reseau":
             v = Prompt.ask("Timeout reseau (secondes)", default=str(reseau.get("timeout", 8)))
             if v.isdigit() and 1 <= int(v) <= 120:
                 reseau["timeout"] = int(v)
@@ -180,16 +196,19 @@ def _ecran_parametres():
                 ok("Timeout mis a jour.")
             else:
                 bad("Valeur invalide (1-120).")
-        elif c == "12":
+        elif c == "Restaurer les parametres par defaut":
             if Confirm.ask("Restaurer tous les parametres par defaut ?"):
                 _CONFIG = restaurer_defauts()
                 _appliquer_configuration_visuelle()
                 ok("Parametres reinitialises.")
-        if c in {"2", "6", "7", "8", "9", "10"}:
+        if c in {"Style d'interface", "Largeur du menu", "Panneau lateral",
+                 "Badges de categories", "Banniere de demarrage", "Animations"}:
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
             ok("Reglage d'interface sauvegarde et applique.")
-        pause()
+        if c not in {"Couleur d'accent", "Couleur du texte shell", "Fond shell",
+                     "Personnaliser les couleurs du theme"}:
+            pause()
 
 
 def _menu_palette_personnalisee():
@@ -212,20 +231,17 @@ def _menu_palette_personnalisee():
         console.clear()
         titre("PALETTE PERSONNALISEE", C_GOLD)
         table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        table.add_column("N.", width=4)
         table.add_column("Role")
         table.add_column("Couleur")
-        for index, slot in enumerate(SLOTS, 1):
-            table.add_row(str(index), labels[slot], palette.get(slot, "#ffffff"))
-        table.add_row("0", "Terminer", "")
+        roles = [labels[slot] for slot in SLOTS]
+        for slot in SLOTS:
+            table.add_row(labels[slot], palette.get(slot, "#ffffff"))
+        table.add_row("Terminer", "")
         console.print(table)
-        choix = Prompt.ask("Role a modifier", default="0").strip()
-        if choix == "0":
+        choix = selectionner_option("PALETTE PERSONNALISEE", roles + ["Terminer"])
+        if choix in (None, "Terminer"):
             break
-        if not choix.isdigit() or not 1 <= int(choix) <= len(SLOTS):
-            bad("Choix de role invalide.")
-            continue
-        slot = SLOTS[int(choix) - 1]
+        slot = SLOTS[roles.index(choix)]
         valeur = Prompt.ask(f"Nouvelle couleur pour {labels[slot]}", default=palette.get(slot, "#ffffff")).strip()
         if not couleur_valide(valeur):
             bad("Couleur invalide : saisissez #RRGGBB ou un nom Rich reconnu.")
@@ -267,29 +283,29 @@ def _menu_themes():
         theme_actif = app.get("theme_actif", "original")
 
         t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        t.add_column("N.", style="bold", width=3)
         t.add_column("Theme", width=25)
         t.add_column("Statut")
 
-        for i, cle in enumerate(liste_themes(), 1):
+        themes_liste = liste_themes()
+        options = []
+        for cle in themes_liste:
+            label = nommer_theme(cle)
+            options.append(label)
             actif = " [ACTIF]" if cle == theme_actif else ""
-            t.add_row(str(i), nommer_theme(cle), f"[bold green]{actif}[/]" if actif else "")
+            t.add_row(label, f"[bold green]{actif}[/]" if actif else "")
 
-        t.add_row("0", "Retour", "")
+        t.add_row("Retour", "")
 
         console.print(t)
-        c = Prompt.ask(f"[bold {C_GOLD}]Themes {ARROW}[/]", default="0").strip()
-
-        if c == "0":
+        choix = selectionner_option("THEMES", options + ["Retour"])
+        if choix in (None, "Retour"):
             break
 
-        themes_liste = liste_themes()
-        if c.isdigit() and 1 <= int(c) <= len(themes_liste):
-            cle = themes_liste[int(c) - 1]
-            _CONFIG["apparence"]["theme_actif"] = cle
-            initialiser_theme(_CONFIG)
-            sauvegarder(_CONFIG)
-            ok(f"Theme '{nommer_theme(cle)}' applique.")
+        cle = themes_liste[options.index(choix)]
+        _CONFIG["apparence"]["theme_actif"] = cle
+        initialiser_theme(_CONFIG)
+        sauvegarder(_CONFIG)
+        ok(f"Theme '{nommer_theme(cle)}' applique.")
         pause()
 
 
@@ -508,11 +524,9 @@ def construire_menu(sel, buf, t, msg="", tout=False):
             l.append_text(texte_arc(CONN_L if dernier else CONN_T, t, ln * 4 + 4))
             est_actif = (FLAT.index(f) == sel)
             if est_actif:
-                l.append(f" {f['num']:>2} ", style="bold black on white")
                 l.append(f" {f['nom']} ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
                 l.append(f"  {f['desc']}", style="white")
             else:
-                l.append(f"{f['num']:>2} ", style=f"bold {couleur}")
                 l.append(f"{f['nom']}", style="white")
                 l.append(f"  {f['desc']}", style="grey50")
             arbre.append(l)
@@ -521,10 +535,9 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     l = texte_arc(CONN_L, t, ln * 4)
     quit_idx = NUM_IDX["0"]
     if sel == quit_idx:
-        l.append("  0  Quitter la suite ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
+        l.append("  Quitter la suite ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
     else:
-        l.append(" 0 ", style="bold red")
-        l.append("Quitter", style="red")
+        l.append(" Quitter", style="red")
     arbre.append(l)
 
     boite_ui = box.SQUARE if style_ui == "classique" else (box.MINIMAL if style_ui == "compact" else BX)
@@ -553,7 +566,6 @@ def construire_menu(sel, buf, t, msg="", tout=False):
 
     side_elements.append(Text.from_markup(f"[bold {col_cat}]> INSPECTEUR[/]"))
     if item_sel and item_sel["num"] != "0":
-        side_elements.append(Text.from_markup(f". N  Module  : [bold gold1]#{item_sel['num']}[/]"))
         side_elements.append(Text.from_markup(f". Nom        : [bold white]{escape(item_sel['nom'])}[/]"))
         side_elements.append(Text.from_markup(f". Domaine    : [bold {col_cat}]{nom_cat}[/]"))
         side_elements.append(Text.from_markup(f". Role       : [dim italic]{escape(item_sel['desc'])}[/]"))
@@ -567,7 +579,6 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     side_elements.append(Text.from_markup(f"[bold magenta]>  RACCOURCIS[/]"))
     side_elements.append(Text.from_markup(f"[bold white]^ / v[/]   : Naviguer"))
     side_elements.append(Text.from_markup(f"[bold white]Entree[/]  : Executer"))
-    side_elements.append(Text.from_markup(f"[bold white]0..9[/]    : Acces direct"))
     side_elements.append(Text.from_markup(f"[bold white]s[/]       : Parametres"))
     side_elements.append(Text.from_markup(f"[bold white]q[/]       : Quitter"))
 
@@ -604,12 +615,10 @@ def construire_menu(sel, buf, t, msg="", tout=False):
 
     if not tout and ui_cfg.get("afficher_aide_menu", True):
         parts.append(Text(""))
-        saisie = Text(justify="center")
-        saisie.append("COMMANDE : ", style="bold grey70")
-        saisie.append(buf + ("|" if UNICODE else "_"), style=f"bold {arc(0, t, 0.6)}")
+        aide = Text("Fleches haut/bas : naviguer   Entree : executer   s : parametres   q : quitter", justify="center")
         if msg:
-            saisie.append(f"   ! {msg}", style="bold red")
-        parts.append(Align.center(Panel(saisie, box=BX, border_style="grey42", width=min(w_console, 70))))
+            aide.append(f"   ! {msg}", style="bold red")
+        parts.append(Align.center(Panel(aide, box=BX, border_style="grey42", width=min(w_console, 90))))
 
     return Group(*parts)
 
@@ -693,39 +702,42 @@ def menu_interactif():
                 SEL = (SEL + 1) % n
                 buf = ""
             elif k == "ENTER":
-                if buf:
-                    if buf in NUM_IDX:
-                        SEL = NUM_IDX[buf]
-                        return buf
-                    msg = "choix invalide"
-                    buf = ""
-                else:
-                    return FLAT[SEL]["num"]
-            elif k == "BACK":
-                buf = buf[:-1]
+                return FLAT[SEL]["num"]
             elif k == "ESC":
                 buf = ""
             elif k in ("s", "S"):
-                _ecran_parametres()
+                T.__exit__(None, None, None)
+                live.stop()
+                try:
+                    _ecran_parametres()
+                finally:
+                    console.clear()
+                    T.__enter__()
+                    live.start()
                 buf = ""
-                console.clear()
             elif k in ("q", "Q", "QUIT"):
                 return "0"
-            elif len(k) == 1 and k.isdigit() and len(buf) < 2:
-                buf += k
-                if buf in NUM_IDX:
-                    SEL = NUM_IDX[buf]
 
 def menu_simple():
-    console.clear()
-    console.print(construire_menu(-1, "", 0.0, tout=True))
+    """Fallback console : sélection par libellé, jamais par numéro."""
+    categories = [nom for nom, _, _ in CATALOGUE]
     while True:
-        c = Prompt.ask(f"\n[bold {C_GOLD}]osint {ARROW}[/]").strip().lower()
-        if c in ("q", "quit", "exit"):
+        choix_categorie = selectionner_option(
+            "MENU PRINCIPAL", categories + ["Parametres", "Quitter"]
+        )
+        if choix_categorie is None or choix_categorie == "Quitter":
             return "0"
-        if c in NUM_IDX:
-            return c
-        bad("Choix invalide.")
+        if choix_categorie == "Parametres":
+            _ecran_parametres()
+            continue
+        options = [nom for nom, _, _ in CATALOGUE[categories.index(choix_categorie)][2]]
+        choix_outil = selectionner_option(choix_categorie, options + ["Retour"])
+        if choix_outil is None or choix_outil == "Retour":
+            continue
+        for entree in FLAT:
+            if entree["nom"] == choix_outil:
+                return entree["num"]
+        bad("Outil introuvable dans le catalogue.")
 
 def main():
     global _CONFIG
