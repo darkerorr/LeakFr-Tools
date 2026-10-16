@@ -7,3 +7,9 @@ from modules.utils.file_hash import hash_fichier
 from modules.utils.luhn_validator import luhn_check
 from modules.utils.user_agent_parser import user_agent_parse
 from modules.utils.timestamp_converter import timestamp_outil
+from modules.utils.password_generator import generer_mot_de_passe
+from modules.utils.json_formatter import formater_json
+from modules.utils.text_analyzer import analyser_texte
+from modules.utils.uuid_generator import generer_uuid
+from modules.utils.base_converter import convertir_base
+from modules.utils.date_calculator import calculer_dates

@@ -9,6 +9,8 @@ import webbrowser
 import requests
 from rich import box
 from rich.console import Console
+from rich.theme import Theme
+from rich.style import Style
 from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
@@ -43,27 +45,54 @@ C_DISCORD = "#5865F2"
 # Configuration et thème (import différé)
 _CONFIG = None
 _THEME = None
+_UI_CONFIG = {}
+_CUSTOM_THEME_ACTIVE = False
 
 
 def initialiser_theme(config: dict):
     global C_OSINT, C_RECON, C_CYBER, C_UTIL, C_ASTRO, C_GOLD, C_PENTEST, C_DISCORD
-    global _CONFIG, _THEME
+    global _CONFIG, _THEME, _UI_CONFIG, _CUSTOM_THEME_ACTIVE
     from core.theme import appliquer_theme
     _CONFIG = config
+    _UI_CONFIG = dict(config.get("apparence", {}))
     palette = appliquer_theme(config)
     _THEME = palette
     C_OSINT = palette.get("principale", C_OSINT)
     C_RECON = palette.get("secondaire", C_RECON)
     C_CYBER = palette.get("erreurs", C_CYBER)
     C_UTIL = palette.get("succes", C_UTIL)
-    C_ASTRO = palette.get("principale", C_ASTRO)
+    C_ASTRO = palette.get("secondaire", C_ASTRO)
     C_GOLD = palette.get("titres", C_GOLD)
     C_PENTEST = palette.get("avertissements", C_PENTEST)
-    C_DISCORD = palette.get("secondaire", C_DISCORD)
+    C_DISCORD = palette.get("accents", C_DISCORD)
+    app = config.get("apparence", {})
+    foreground = app.get("couleur_shell_texte", "#ffffff")
+    background = app.get("couleur_shell_fond", "#10131c")
+    if not isinstance(foreground, str) or not foreground.startswith("#"):
+        foreground = "#ffffff"
+    if not isinstance(background, str):
+        background = "#10131c"
+    try:
+        console.style = Style(color=foreground, bgcolor=background)
+    except (ValueError, TypeError):
+        console.style = Style(color="#ffffff", bgcolor="#10131c")
+        foreground, background = "#ffffff", "#10131c"
+    if _CUSTOM_THEME_ACTIVE:
+        console.pop_theme()
+    console.push_theme(Theme({"prompt": palette.get("titres", C_GOLD),
+                              "repr.number": palette.get("secondaire", C_RECON),
+                              "shell.text": foreground,
+                              "shell.background": background}), inherit=True)
+    _CUSTOM_THEME_ACTIVE = True
 
 
 def obtenir_theme() -> dict:
     return _THEME or {}
+
+
+def obtenir_config_ui() -> dict:
+    """Retourne une copie des réglages visuels actuellement actifs."""
+    return dict(_UI_CONFIG)
 
 
 DISCORD_EPOCH = 1420070400000

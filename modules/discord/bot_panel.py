@@ -4,6 +4,11 @@ Ameliore: organisation visuelle, hierarchie, lisibilite, messages d'erreur.
 Preserve toutes les commandes et interactions existantes.
 """
 from datetime import datetime, timezone
+import json
+import re
+import unicodedata
+from pathlib import Path
+
 import requests
 from rich.align import Align
 from rich.console import Group
@@ -13,9 +18,10 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 from core.common import (
-    console, titre, ok, bad, warn, demander, attente, pause,
+    console, titre, ok, bad, warn, demander, attente, pause, kv,
     BX, C_DISCORD, C_GOLD, DISCORD_EPOCH, warn_pentest
 )
+from core.config import EXPORTS_DIR
 from modules.discord.gateway_bot import DiscordGatewayClient
 
 STATUS_PRESETS = {
@@ -116,6 +122,8 @@ def _render_left_panel(bot_data, guilds, gateway_client):
     t.add_row("Activite:", activity_txt)
     t.add_row("Serveurs:", f"{len(guilds)} serveur(s)")
 
+
+
     # Liste des serveurs (max 3)
     if guilds:
         lines = [f"  {g.get('name', '?')[:28]} (ID: {g.get('id', '-')})" for g in guilds[:4]]
@@ -198,22 +206,94 @@ def _render_right_panel(selected_guild_id, guild_info):
 def _render_footer():
     """Barre d'actions en bas du panel."""
     actions = [
-        ("[1]", "On/Off Bot"),
-        ("[2]", "Cibler"),
-        ("[3]", "Presence"),
-        ("[4]", "Salons"),
-        ("[5]", "Roles"),
-        ("[6]", "Webhooks"),
-        ("[7]", "Message"),
-        ("[0]", "Quitter"),
+        ("1", "Gateway"), ("2", "Cible"), ("3", "Presence"),
+        ("4", "Salons"), ("5", "Roles"), ("6", "Webhooks"),
+        ("7", "Message"), ("8", "Actualiser"), ("9", "Permissions"),
+        ("10", "Pseudo"), ("11", "Invitation"), ("12", "Export JSON"),
+        ("0", "Quitter"),
     ]
-    t = Table.grid(padding=(0, 2))
-    t.add_column()
-    parts = []
-    for key, label in actions:
-        parts.append(Text.assemble((key, f"bold {C_DISCORD}"), (f" {label}", "bold white")))
-    t.add_row(*parts)
+    parts = [Text.assemble((f"[{key}]", f"bold {C_DISCORD}"), (f" {label}", "bold white"))
+             for key, label in actions]
     return Panel(Align.center(Group(*parts)), box=BX, border_style="grey50")
+
+
+def _request(method, url, headers, **kwargs):
+    """Effectue une requete API avec un delai borne et une erreur exploitable."""
+    return requests.request(method, url, headers=headers, timeout=8, **kwargs)
+
+
+def _valid_snowflake(value):
+    return isinstance(value, str) and value.isdigit() and 15 <= len(value) <= 22
+
+
+def _permission_summary(headers, guild_id, bot_id, roles):
+    """Calcule les permissions de base du bot a partir de ses roles de serveur."""
+    if not (_valid_snowflake(guild_id) and _valid_snowflake(bot_id)):
+        raise ValueError("Identifiant de serveur ou de bot invalide.")
+    response = _request(
+        "GET",
+        f"https://discord.com/api/v10/guilds/{guild_id}/members/{bot_id}",
+        headers,
+    )
+    if response.status_code != 200:
+        return None, response.status_code
+    member = response.json()
+    role_ids = set(member.get("roles", [])) | {guild_id}
+    permissions = 0
+    for role in roles:
+        if role.get("id") in role_ids:
+            permissions |= int(role.get("permissions", 0))
+    return permissions, response.status_code
+
+
+def _permission_rows(permissions):
+    checks = [
+        ("Administrateur", 0x8), ("Gerer les salons", 0x10),
+        ("Voir les journaux d'audit", 0x80), ("Gerer les messages", 0x2000),
+        ("Gerer les roles", 0x10000000), ("Gerer les webhooks", 0x20000000),
+    ]
+    return [(label, "Oui" if permissions & 0x8 or permissions & bit else "Non")
+            for label, bit in checks]
+
+
+def _save_guild_audit(guild_id, guild_info):
+    """Exporte un resume JSON sans identifiants secrets ni contenu de messages."""
+    guild = guild_info.get("guild") or {}
+    snapshot = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "guild": {key: guild.get(key) for key in ("id", "name", "owner_id", "approximate_member_count")},
+        "channels": [
+            {key: channel.get(key) for key in ("id", "name", "type", "nsfw")}
+            for channel in guild_info.get("channels", [])
+        ],
+        "roles": [
+            {key: role.get(key) for key in ("id", "name", "position", "permissions")}
+            for role in guild_info.get("roles", [])
+        ],
+        "members_loaded": len(guild_info.get("members", [])),
+    }
+    Path(EXPORTS_DIR).mkdir(parents=True, exist_ok=True)
+    path = Path(EXPORTS_DIR) / f"guild_{guild_id}_audit.json"
+    path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def _slug_channel_name(value):
+    normalized = unicodedata.normalize("NFKD", value.strip().lower())
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    name = re.sub(r"[^a-z0-9_-]+", "-", ascii_name).strip("-")
+    if not name or len(name) > 100:
+        raise ValueError("Nom de salon invalide (1 a 100 caracteres autorises).")
+    return name
+
+
+def _api_error(response):
+    try:
+        data = response.json()
+        message = data.get("message", "")
+    except (ValueError, AttributeError):
+        message = ""
+    return f"HTTP {response.status_code}" + (f" : {message}" if message else "")
 
 
 def _render_bot_panel(bot_data, guilds, selected_guild_id, guild_info, gateway_client):
@@ -222,7 +302,7 @@ def _render_bot_panel(bot_data, guilds, selected_guild_id, guild_info, gateway_c
     layout.split_column(
         Layout(name="header", size=3),
         Layout(name="body"),
-        Layout(name="footer", size=4),
+        Layout(name="footer", size=5),
     )
     layout["body"].split_row(
         Layout(name="left", ratio=50),
@@ -247,7 +327,7 @@ def bot_panel():
         bad("Audit annule : autorisation requise.")
         return
 
-    token = demander("Entrez le Token du Bot Discord").strip()
+    token = Prompt.ask("[bold gold1]Entrez le Token du Bot Discord[/]", password=True).strip()
     if not token or "." not in token:
         bad("Token invalide.")
         return
@@ -304,6 +384,10 @@ def bot_panel():
                 gateway_client.start()
                 import time
                 time.sleep(1.5)
+                if gateway_client.connected:
+                    ok("Connexion Gateway etablie.")
+                else:
+                    warn("La connexion n'a pas abouti. Consultez les evenements Gateway dans le panneau.")
             pause()
 
         elif choix == "2":
@@ -314,7 +398,7 @@ def bot_panel():
             gid_input = demander("Guild ID a cibler (ou numero de la liste)")
             if gid_input.isdigit() and 1 <= int(gid_input) <= len(guilds):
                 selected_guild_id = guilds[int(gid_input) - 1].get("id")
-            elif gid_input.isdigit():
+            elif _valid_snowflake(gid_input):
                 selected_guild_id = gid_input
             else:
                 warn("ID invalide.")
@@ -383,19 +467,23 @@ def bot_panel():
                 console.print("  [0] Retour")
                 c_opt = Prompt.ask("Choix", choices=["0", "1"], default="0")
                 if c_opt == "1":
-                    c_name = demander("Nom du nouveau salon", defaut="audit-security")
-                    with attente(f"Creation du salon '{c_name}'"):
-                        r_ch = requests.post(
-                            f"https://discord.com/api/v10/guilds/{selected_guild_id}/channels",
-                            headers=headers,
-                            json={"name": c_name, "type": 0},
-                            timeout=8,
-                        )
-                    if r_ch.status_code in (200, 201):
-                        ok(f"Salon '{c_name}' cree avec succes !")
-                        guild_info["channels"].append(r_ch.json())
-                    else:
-                        bad(f"Echec ({r_ch.status_code}) : permissions insuffisantes.")
+                    try:
+                        c_name = _slug_channel_name(demander("Nom du nouveau salon", defaut="audit-security"))
+                        if Confirm.ask(f"Confirmer la creation du salon '{c_name}' ?", default=False):
+                            with attente(f"Creation du salon '{c_name}'"):
+                                r_ch = _request(
+                                    "POST",
+                                    f"https://discord.com/api/v10/guilds/{selected_guild_id}/channels",
+                                    headers,
+                                    json={"name": c_name, "type": 0},
+                                )
+                            if r_ch.status_code in (200, 201):
+                                ok(f"Salon '{c_name}' cree avec succes !")
+                                guild_info["channels"].append(r_ch.json())
+                            else:
+                                bad(_api_error(r_ch))
+                    except (ValueError, requests.RequestException) as exc:
+                        bad(f"Creation impossible : {exc}")
             pause()
 
         elif choix == "5":
@@ -424,8 +512,13 @@ def bot_panel():
                 warn("Ciblez d'abord un serveur (option [2]).")
                 pause()
                 continue
-            with attente("Extraction des Webhooks du serveur"):
-                rw = requests.get(f"https://discord.com/api/v10/guilds/{selected_guild_id}/webhooks", headers=headers, timeout=8)
+            try:
+                with attente("Extraction des Webhooks du serveur"):
+                    rw = _request("GET", f"https://discord.com/api/v10/guilds/{selected_guild_id}/webhooks", headers)
+            except requests.RequestException as exc:
+                bad(f"Erreur reseau : {exc}")
+                pause()
+                continue
             if rw.status_code == 200:
                 hooks = rw.json()
                 if not hooks:
@@ -437,30 +530,125 @@ def bot_panel():
                     t.add_column("Channel ID")
                     t.add_column("Token", style="dim")
                     for h in hooks:
-                        token_display = (h.get("token", "")[:20] + "...") if h.get("token") else "Masque"
-                        t.add_row(h.get("name", "?"), h.get("id", "-"), h.get("channel_id", "-"), token_display)
+                        t.add_row(h.get("name", "?"), h.get("id", "-"), h.get("channel_id", "-"), "[masque]")
+
                     console.print(t)
             else:
                 bad(f"Echec ({rw.status_code}) : permission 'MANAGE_WEBHOOKS' requise.")
             pause()
 
         elif choix == "7":
+
             if not selected_guild_id:
                 warn("Ciblez d'abord un serveur (option [2]).")
                 pause()
                 continue
             ch_id = demander("ID du salon textuel cible")
+            if ch_id not in {str(channel.get("id")) for channel in guild_info.get("channels", [])}:
+                bad("Le salon doit appartenir a la liste des salons charges pour le serveur cible.")
+                pause()
+                continue
             msg_content = demander("Message a transmettre")
-            if ch_id and msg_content:
-                with attente("Envoi du message"):
-                    res = requests.post(
-                        f"https://discord.com/api/v10/channels/{ch_id}/messages",
-                        headers=headers,
-                        json={"content": msg_content},
-                        timeout=8,
-                    )
-                if res.status_code in (200, 201):
-                    ok("Message transmis avec succes.")
+            if not _valid_snowflake(ch_id) or not msg_content:
+                bad("ID de salon ou message invalide.")
+            elif Confirm.ask("Confirmer l'envoi de ce message ?", default=False):
+                try:
+                    with attente("Envoi du message"):
+                        res = _request("POST", f"https://discord.com/api/v10/channels/{ch_id}/messages",
+                                       headers, json={"content": msg_content})
+                    if res.status_code in (200, 201):
+                        ok("Message transmis avec succes.")
+                    else:
+                        bad(_api_error(res))
+                except requests.RequestException as exc:
+                    bad(f"Erreur reseau : {exc}")
+            pause()
+
+        elif choix == "8":
+            try:
+                with attente("Actualisation des donnees Discord"):
+                    guilds = _fetch_bot_guilds(headers)
+                    if selected_guild_id:
+                        guild_info = _fetch_guild_details(headers, selected_guild_id)
+                ok(f"Donnees actualisees : {len(guilds)} serveur(s) accessible(s).")
+            except requests.RequestException as exc:
+                bad(f"Actualisation impossible : {exc}")
+            pause()
+
+        elif choix == "9":
+            if not selected_guild_id:
+                warn("Ciblez d'abord un serveur (option [2]).")
+                pause()
+                continue
+            try:
+                permissions, status = _permission_summary(
+                    headers, selected_guild_id, str(bot_data.get("id", "")),
+                    guild_info.get("roles", []),
+                )
+                if permissions is None:
+                    bad(f"Impossible de lire les permissions ({status}) : membre introuvable ou acces refuse.")
                 else:
-                    bad(f"Echec ({res.status_code}) : droit d'ecriture insuffisant.")
+                    rows = _permission_rows(permissions)
+                    kv("Permissions effectives du bot (roles cumules)", rows, C_DISCORD)
+                    if permissions & 0x8:
+                        warn("Le bot possede Administrateur : reduis ses permissions si ce droit n'est pas necessaire.")
+            except (ValueError, requests.RequestException) as exc:
+                bad(f"Audit des permissions impossible : {exc}")
+            pause()
+
+        elif choix == "10":
+            if not selected_guild_id:
+                warn("Ciblez d'abord un serveur (option [2]).")
+                pause()
+                continue
+            nickname = demander("Nouveau surnom du bot (vide pour le retirer)", defaut="")
+            if len(nickname) > 32:
+                bad("Le surnom ne peut pas depasser 32 caracteres.")
+            elif Confirm.ask("Confirmer le changement de surnom du bot ?", default=False):
+                try:
+                    with attente("Mise a jour du surnom"):
+                        res = _request("PATCH", f"https://discord.com/api/v10/guilds/{selected_guild_id}/members/@me",
+                                       headers, json={"nick": nickname or None})
+                    if res.status_code in (200, 204):
+                        ok("Surnom mis a jour.")
+                    else:
+                        bad(_api_error(res))
+                except requests.RequestException as exc:
+                    bad(f"Erreur reseau : {exc}")
+            pause()
+
+        elif choix == "11":
+            if not selected_guild_id:
+                warn("Ciblez d'abord un serveur (option [2]).")
+                pause()
+                continue
+            channel_id = demander("ID du salon textuel pour l'invitation")
+            if channel_id not in {str(channel.get("id")) for channel in guild_info.get("channels", [])}:
+                bad("Le salon doit appartenir a la liste des salons charges pour le serveur cible.")
+            elif not _valid_snowflake(channel_id):
+                bad("ID de salon invalide.")
+            elif Confirm.ask("Creer une invitation partageable pour ce salon ?", default=False):
+                try:
+                    with attente("Creation de l'invitation"):
+                        res = _request("POST", f"https://discord.com/api/v10/channels/{channel_id}/invites",
+                                       headers, json={"max_age": 3600, "max_uses": 1, "unique": True})
+                    if res.status_code in (200, 201):
+                        code = res.json().get("code")
+                        ok(f"Invitation creee (valable 1 heure, 1 utilisation) : https://discord.gg/{code}")
+                    else:
+                        bad(_api_error(res))
+                except (requests.RequestException, ValueError) as exc:
+                    bad(f"Creation impossible : {exc}")
+            pause()
+
+        elif choix == "12":
+            if not selected_guild_id or not guild_info.get("guild"):
+                warn("Ciblez et chargez d'abord un serveur (option [2]).")
+                pause()
+                continue
+            try:
+                path = _save_guild_audit(selected_guild_id, guild_info)
+                ok(f"Audit exporte sans tokens ni messages : {path}")
+            except OSError as exc:
+                bad(f"Export impossible : {exc}")
             pause()

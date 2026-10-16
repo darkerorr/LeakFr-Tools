@@ -235,19 +235,23 @@ def liste_themes() -> list:
     return list(THEMES.keys())
 
 
-def appliquer_theme(config: dict) -> dict:
-    """Construit le dictionnaire de couleurs actives depuis la config.
-
-    Si le thème est 'personnalise', utilise theme_personnalise.
-    Sinon, prend le thème nommé. Si le thème est invalide, retourne original.
-    """
+def palette_active(config: dict) -> dict:
+    """Retourne la palette avec les remplacements d'accent et de couleurs valides."""
     theme_actif = config.get("apparence", {}).get("theme_actif", "original")
     if theme_actif == "personnalise":
-        palette = config.get("theme_personnalise", {})
-        if valider_theme(palette):
-            return dict(palette)
-    palette = THEMES.get(theme_actif)
-    if palette and valider_theme(palette):
-        return dict(palette)
-    # Repli sûr
-    return dict(THEMES["original"])
+        base = config.get("theme_personnalise", {})
+        palette = dict(base) if valider_theme(base) else dict(THEMES["original"])
+    else:
+        base = THEMES.get(theme_actif, THEMES["original"])
+        palette = dict(base)
+    app = config.get("apparence", {})
+    accent = app.get("couleur_accent")
+    if couleur_valide(accent):
+        palette["principale"] = accent
+        palette["accents"] = accent
+    return palette
+
+
+def appliquer_theme(config: dict) -> dict:
+    """Construit le dictionnaire de couleurs actives depuis la configuration."""
+    return palette_active(config)

@@ -3,6 +3,7 @@
 Suite complete d'investigation, reconnaissance, cybersecurite, pentest et utilitaires.
 Architecture modulaire : modules/<categorie>/<outil>.py
 """
+import argparse
 import os
 import sys
 import time
@@ -30,7 +31,7 @@ from core.common import (
     console, arc, texte_arc, bad, warn, ok, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW,
     BANNER, C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
-    initialiser_theme, obtenir_theme
+    initialiser_theme, obtenir_theme, obtenir_config_ui
 )
 from core.config import charger, sauvegarder, restaurer_defauts, DEFAUTS
 from core.cases import (
@@ -62,12 +63,14 @@ from modules.pentest import (
 )
 from modules.discord import (
     discord_id_lookup, webhook_info, webhook_spammer, webhook_delete,
-    bot_token_info, user_token_info, invite_lookup, guild_widget_lookup,
+    bot_token_info, invite_lookup, guild_widget_lookup,
     snowflake_parser, bot_invite_generator, bot_panel
 )
 from modules.utils import (
     identifier_hash, generateur_hash, encode_decode, force_mdp,
-    calc_reseau, hash_fichier, luhn_check, user_agent_parse, timestamp_outil
+    calc_reseau, hash_fichier, luhn_check, user_agent_parse, timestamp_outil,
+    generer_mot_de_passe, formater_json, analyser_texte, generer_uuid,
+    convertir_base, calculer_dates,
 )
 from modules.astro import (
     iss, apod, asteroides, planetes, lancements,
@@ -76,13 +79,28 @@ from modules.astro import (
 
 # --- Configuration globale ---
 _CONFIG = charger()
-initialiser_theme(_CONFIG)
+
+
+def _synchroniser_couleurs_locales():
+    """Actualise les constantes importees apres un changement de palette."""
+    global C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD
+    import core.common as common_ui
+    for nom in ("C_OSINT", "C_RECON", "C_CYBER", "C_PENTEST", "C_UTIL", "C_ASTRO", "C_GOLD", "C_DISCORD"):
+        globals()[nom] = getattr(common_ui, nom)
+
+
+def _appliquer_configuration_visuelle():
+    initialiser_theme(_CONFIG)
+    _synchroniser_couleurs_locales()
+
+
+_appliquer_configuration_visuelle()
 
 
 def _ecran_parametres():
     """Menu de parametres persistant."""
     global _CONFIG
-    from core.theme import THEMES, liste_themes, nommer_theme, couleur_valide, valider_theme, SLOTS
+    from core.theme import THEMES, liste_themes, nommer_theme
 
     while True:
         console.clear()
@@ -96,11 +114,21 @@ def _ecran_parametres():
         app = _CONFIG.get("apparence", {})
         reseau = _CONFIG.get("reseau", {})
 
-        t.add_row("1", "Theme", nommer_theme(app.get("theme_actif", "original")))
-        t.add_row("2", "Banniere de demarrage", str(app.get("banniere_demarrage", True)))
-        t.add_row("3", "Animations", str(app.get("animations", True)))
-        t.add_row("4", "Timeout reseau (s)", str(reseau.get("timeout", 8)))
-        t.add_row("5", "Restaurer parametres par defaut", "")
+        styles = {"dashboard": "Dashboard split", "classique": "Classique", "compact": "Compact"}
+        largeurs = {"auto": "Automatique", "large": "Large", "etroit": "Etroit"}
+        t.add_row("1", "Palette de couleurs", nommer_theme(app.get("theme_actif", "original")))
+        t.add_row("2", "Style d'interface", styles.get(app.get("style_interface"), "Dashboard split"))
+        t.add_row("3", "Couleur d'accent", app.get("couleur_accent") or "Auto (palette)")
+        t.add_row("4", "Couleur du texte shell", app.get("couleur_shell_texte", "#ffffff"))
+        t.add_row("5", "Fond shell (sorties Rich)", app.get("couleur_shell_fond", "#10131c"))
+        t.add_row("6", "Largeur du menu", largeurs.get(app.get("largeur_menu"), "Automatique"))
+        t.add_row("7", "Panneau lateral", str(app.get("afficher_panneau_lateral", True)))
+        t.add_row("8", "Badges de categories", str(app.get("afficher_badges_categories", True)))
+        t.add_row("9", "Banniere de demarrage", str(app.get("banniere_demarrage", True)))
+        t.add_row("10", "Animations", str(app.get("animations", True)))
+        t.add_row("11", "Timeout reseau (s)", str(reseau.get("timeout", 8)))
+        t.add_row("12", "Restaurer parametres par defaut", "")
+        t.add_row("13", "Personnaliser les couleurs du theme", "")
         t.add_row("0", "Retour au menu principal", "")
 
         console.print(t)
@@ -110,34 +138,126 @@ def _ecran_parametres():
             break
         elif c == "1":
             _menu_themes()
+            sauvegarder(_CONFIG)
+            _appliquer_configuration_visuelle()
+        elif c == "13":
+            _menu_palette_personnalisee()
+            pause()
+            continue
         elif c == "2":
-            _CONFIG["apparence"]["banniere_demarrage"] = not app.get("banniere_demarrage", True)
-            sauvegarder(_CONFIG)
-            ok("Modifie.")
+            console.print("[1] Dashboard split  [2] Classique  [3] Compact")
+            choix = Prompt.ask("Style", choices=["1", "2", "3"], default="1")
+            _CONFIG["apparence"]["style_interface"] = {"1": "dashboard", "2": "classique", "3": "compact"}[choix]
         elif c == "3":
-            _CONFIG["apparence"]["animations"] = not app.get("animations", True)
-            sauvegarder(_CONFIG)
-            ok("Modifie.")
+            _configurer_couleur("couleur_accent", "Accent (hex #RRGGBB ou vide pour Auto)", optionnelle=True)
+            pause()
+            continue
         elif c == "4":
-            v = Prompt.ask("Timeout reseau (secondes)", default="8")
+            _configurer_couleur("couleur_shell_texte", "Couleur du texte shell")
+            pause()
+            continue
+        elif c == "5":
+            _configurer_couleur("couleur_shell_fond", "Couleur de fond shell")
+            pause()
+            continue
+        elif c == "6":
+            console.print("[1] Automatique  [2] Large  [3] Etroit")
+            choix = Prompt.ask("Largeur", choices=["1", "2", "3"], default="1")
+            _CONFIG["apparence"]["largeur_menu"] = {"1": "auto", "2": "large", "3": "etroit"}[choix]
+        elif c == "7":
+            app["afficher_panneau_lateral"] = not app.get("afficher_panneau_lateral", True)
+        elif c == "8":
+            app["afficher_badges_categories"] = not app.get("afficher_badges_categories", True)
+        elif c == "9":
+            app["banniere_demarrage"] = not app.get("banniere_demarrage", True)
+        elif c == "10":
+            app["animations"] = not app.get("animations", True)
+        elif c == "11":
+            v = Prompt.ask("Timeout reseau (secondes)", default=str(reseau.get("timeout", 8)))
             if v.isdigit() and 1 <= int(v) <= 120:
-                _CONFIG["reseau"]["timeout"] = int(v)
+                reseau["timeout"] = int(v)
                 sauvegarder(_CONFIG)
                 ok("Timeout mis a jour.")
             else:
                 bad("Valeur invalide (1-120).")
-        elif c == "5":
+        elif c == "12":
             if Confirm.ask("Restaurer tous les parametres par defaut ?"):
                 _CONFIG = restaurer_defauts()
-                initialiser_theme(_CONFIG)
+                _appliquer_configuration_visuelle()
                 ok("Parametres reinitialises.")
+        if c in {"2", "6", "7", "8", "9", "10"}:
+            sauvegarder(_CONFIG)
+            _appliquer_configuration_visuelle()
+            ok("Reglage d'interface sauvegarde et applique.")
         pause()
+
+
+def _menu_palette_personnalisee():
+    """Editeur de couleurs par role, sauvegarde dans la configuration locale."""
+    global _CONFIG
+    from core.theme import SLOTS, couleur_valide, appliquer_theme
+    palette = _CONFIG.setdefault("theme_personnalise", {}).copy()
+    theme_config = dict(_CONFIG)
+    theme_config.setdefault("apparence", {})["couleur_accent"] = ""
+    palette.update(appliquer_theme(theme_config))
+    _CONFIG["theme_personnalise"] = palette
+    labels = {
+        "principale": "Couleur principale", "secondaire": "Couleur secondaire",
+        "titres": "Titres", "texte_principal": "Texte principal",
+        "texte_secondaire": "Texte secondaire", "selection": "Selection",
+        "bordures": "Bordures", "accents": "Accents", "succes": "Succes",
+        "avertissements": "Avertissements", "erreurs": "Erreurs", "panneaux": "Panneaux",
+    }
+    while True:
+        console.clear()
+        titre("PALETTE PERSONNALISEE", C_GOLD)
+        table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+        table.add_column("N.", width=4)
+        table.add_column("Role")
+        table.add_column("Couleur")
+        for index, slot in enumerate(SLOTS, 1):
+            table.add_row(str(index), labels[slot], palette.get(slot, "#ffffff"))
+        table.add_row("0", "Terminer", "")
+        console.print(table)
+        choix = Prompt.ask("Role a modifier", default="0").strip()
+        if choix == "0":
+            break
+        if not choix.isdigit() or not 1 <= int(choix) <= len(SLOTS):
+            bad("Choix de role invalide.")
+            continue
+        slot = SLOTS[int(choix) - 1]
+        valeur = Prompt.ask(f"Nouvelle couleur pour {labels[slot]}", default=palette.get(slot, "#ffffff")).strip()
+        if not couleur_valide(valeur):
+            bad("Couleur invalide : saisissez #RRGGBB ou un nom Rich reconnu.")
+            continue
+        palette[slot] = valeur.lower()
+        _CONFIG["theme_personnalise"] = palette
+        _CONFIG["apparence"]["theme_actif"] = "personnalise"
+        _appliquer_configuration_visuelle()
+        sauvegarder(_CONFIG)
+        ok(f"{labels[slot]} appliquee.")
+
+
+def _configurer_couleur(cle, invite, optionnelle=False):
+    from core.theme import couleur_valide
+    valeur = Prompt.ask(invite, default="" if optionnelle else _CONFIG["apparence"].get(cle, "#ffffff"),
+                        show_default=not optionnelle).strip()
+    if optionnelle and not valeur:
+        _CONFIG["apparence"][cle] = ""
+    elif couleur_valide(valeur):
+        _CONFIG["apparence"][cle] = valeur.lower()
+    else:
+        bad("Couleur invalide : utilisez #RRGGBB ou un nom Rich reconnu.")
+        return
+    sauvegarder(_CONFIG)
+    _appliquer_configuration_visuelle()
+    ok("Couleur appliquee et sauvegardee.")
 
 
 def _menu_themes():
     """Sous-menu de personnalisation des themes/couleurs."""
     global _CONFIG
-    from core.theme import THEMES, liste_themes, nommer_theme, SLOTS
+    from core.theme import THEMES, liste_themes, nommer_theme
 
     while True:
         console.clear()
@@ -279,7 +399,6 @@ CATALOGUE = [
         ("Envoi / Test Webhook", "Test d'envoi & message personnalise", webhook_spammer),
         ("Supprimer Webhook", "Destruction d'un webhook distant", webhook_delete),
         ("Info Bot Token", "Permissions, statut, serveurs rejoints", bot_token_info),
-        ("Info User Token", "Email, phone, nitro, billing, amis", user_token_info),
         ("Resolveur Invitation", "Membres, stats, serveur, createur", invite_lookup),
         ("Widget Serveur", "Membres en ligne, salons, statut", guild_widget_lookup),
         ("Decodeur Snowflake", "Timestamp, worker, process, binaire", snowflake_parser),
@@ -295,6 +414,12 @@ CATALOGUE = [
         ("Validateur Luhn", "Cartes, IMEI...", luhn_check),
         ("Parseur User-Agent", "Navigateur / OS / bot", user_agent_parse),
         ("Timestamp", "Epoch <-> date UTC", timestamp_outil),
+        ("Generateur de mot de passe", "Secrets aleatoires configurables", generer_mot_de_passe),
+        ("Formateur JSON", "Valider, embellir ou compacter du JSON", formater_json),
+        ("Analyseur de texte", "Compteurs, mots, lignes et frequences", analyser_texte),
+        ("Generateur UUID", "UUID v4 aleatoires en lot", generer_uuid),
+        ("Convertisseur de bases", "Binaire, octal, decimal, hexadecimal", convertir_base),
+        ("Calculateur de dates", "Duree entre deux dates", calculer_dates),
     ]),
     ("ASTRONOMIE", C_ASTRO, [
         ("ISS en direct", "Position + equipage", iss),
@@ -317,10 +442,12 @@ for _ci, (_cat, _couleur, _opts) in enumerate(CATALOGUE):
 FLAT.append(dict(num="0", nom="Quitter", desc="", fn=None, cat=None, couleur="red"))
 ACTIONS = {f["num"]: f["fn"] for f in FLAT if f["fn"]}
 NUM_IDX = {f["num"]: i for i, f in enumerate(FLAT)}
-SEL = 0
+SEL = NUM_IDX["1"]
 
 def construire_menu(sel, buf, t, msg="", tout=False):
     parts = []
+    ui_cfg = obtenir_config_ui()
+    palette = obtenir_theme()
     haut = console.height or 30
 
     if UNICODE and haut >= 36:
@@ -340,12 +467,13 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         ("UTILS", C_UTIL),
         ("ASTRO", C_ASTRO),
     ]
-    for idx, (b_nom, b_col) in enumerate(badges_liste):
-        badges.append(f" {b_nom} ", style=f"bold black on {b_col}")
-        if idx < len(badges_liste) - 1:
-            badges.append("  ")
-    parts.append(Align.center(badges))
-    parts.append(Text(""))
+    if ui_cfg.get("afficher_badges_categories", True):
+        for idx, (b_nom, b_col) in enumerate(badges_liste):
+            badges.append(f" {b_nom} ", style=f"bold black on {b_col}")
+            if idx < len(badges_liste) - 1:
+                badges.append("  ")
+        parts.append(Align.center(badges))
+        parts.append(Text(""))
 
     cat_sel = FLAT[sel]["cat"] if 0 <= sel < len(FLAT) else None
     item_sel = FLAT[sel] if 0 <= sel < len(FLAT) else None
@@ -353,7 +481,15 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     # Construction de l'arbre (colonne de gauche)
     arbre = [texte_arc(("* " if UNICODE else "* ") + "SUITE DE SECURITE & RECON", t, 0)]
     ln = 0
-    for ci, (cat, couleur, opts) in enumerate(CATALOGUE):
+    categories_dynamiques = [
+        palette.get("principale", C_OSINT), palette.get("secondaire", C_RECON),
+        palette.get("erreurs", C_CYBER), palette.get("avertissements", C_PENTEST),
+        palette.get("secondaire", C_DISCORD), palette.get("succes", C_UTIL),
+        palette.get("principale", C_ASTRO),
+    ]
+    style_ui = ui_cfg.get("style_interface", "dashboard")
+    for ci, (cat, couleur_defaut, opts) in enumerate(CATALOGUE):
+        couleur = categories_dynamiques[ci] if ci < len(categories_dynamiques) else couleur_defaut
         ln += 1
         ouvert = tout or ci == cat_sel
         l = texte_arc(CONN_T, t, ln * 4)
@@ -391,10 +527,12 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         l.append("Quitter", style="red")
     arbre.append(l)
 
+    boite_ui = box.SQUARE if style_ui == "classique" else (box.MINIMAL if style_ui == "compact" else BX)
+    couleur_bordure = palette.get("bordures", arc(0, t, 0.3))
     panneau_arbre = Panel(
         Group(*arbre),
-        box=BX,
-        border_style=arc(0, t, 0.3),
+        box=boite_ui,
+        border_style=couleur_bordure if style_ui != "dashboard" else arc(0, t, 0.3),
         padding=(0, 2),
         title=texte_arc(" [ CATALOGUE D'OUTILS ] ", t, 0),
         title_align="left"
@@ -406,7 +544,8 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     col_cat = CATALOGUE[cat_sel][1] if cat_sel is not None and cat_sel < len(CATALOGUE) else C_GOLD
 
     side_elements = []
-    side_elements.append(Text.from_markup(f"[bold cyan]> ETAT SYSTEME[/]"))
+    side_elements.append(Text.from_markup(f"[bold {palette.get('secondaire', 'cyan')}]> ETAT SYSTEME[/]"))
+
     side_elements.append(Text.from_markup(f". Modules dispos : [bold green]{total_outils}[/]"))
     side_elements.append(Text.from_markup(f". Categories     : [bold yellow]{len(CATALOGUE)}[/]"))
     side_elements.append(Text.from_markup(f". OS             : [bold white]{platform.system()} {platform.release()}[/]"))
@@ -434,15 +573,21 @@ def construire_menu(sel, buf, t, msg="", tout=False):
 
     panneau_side = Panel(
         Group(*side_elements),
-        box=BX,
+        box=boite_ui,
         border_style=col_cat,
-        padding=(1, 2),
+        padding=(0 if style_ui == "compact" else 1, 1 if style_ui == "compact" else 2),
         title=f"[bold {col_cat}] INFO & CONTROLE [/]",
         title_align="center"
     )
 
     w_console = console.width or 100
-    if w_console >= 82 and not tout:
+    afficher_side = (style_ui == "dashboard" and ui_cfg.get("afficher_panneau_lateral", True))
+    largeur_mode = ui_cfg.get("largeur_menu", "auto")
+    if largeur_mode == "large":
+        w_console = max(w_console, 115)
+    elif largeur_mode == "etroit":
+        w_console = min(w_console, 78)
+    if w_console >= 82 and not tout and afficher_side:
         layout_table = Table.grid(padding=(0, 1))
         largeur_totale = min(w_console, 115)
         w_main = int(largeur_totale * 0.64)
@@ -457,7 +602,7 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         panneau_arbre.width = min(w_console, 88)
         parts.append(Align.center(panneau_arbre))
 
-    if not tout:
+    if not tout and ui_cfg.get("afficher_aide_menu", True):
         parts.append(Text(""))
         saisie = Text(justify="center")
         saisie.append("COMMANDE : ", style="bold grey70")
@@ -584,6 +729,21 @@ def menu_simple():
 
 def main():
     global _CONFIG
+    parser = argparse.ArgumentParser(
+        description="LeakFr-Tools : boîte à outils OSINT, réseau et cybersécurité.",
+        epilog="Utilise les tests actifs uniquement sur des systèmes autorisés.",
+    )
+    parser.add_argument("--simple", action="store_true", help="désactive le menu clavier interactif")
+    parser.add_argument("--ascii", action="store_true", help="privilégie un affichage compatible ASCII")
+    parser.add_argument("--version", action="version", version="LeakFr-Tools 2.0")
+    args = parser.parse_args()
+    global INTERACTIF, UNICODE, BX, CONN_T, CONN_L, PIPE
+    if args.simple:
+        INTERACTIF = False
+    if args.ascii:
+        UNICODE = False
+        BX = box.ASCII
+        CONN_T, CONN_L, PIPE = ("|-- ", "`-- ", "|   ")
     _intro_ascii(_CONFIG)
     while True:
         try:

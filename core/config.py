@@ -28,6 +28,14 @@ DEFAUTS = {
         "banniere_demarrage": True,
         "animations": True,
         "introduction_longue": True,
+        "style_interface": "dashboard",  # dashboard / classique / compact
+        "afficher_aide_menu": True,
+        "couleur_shell_texte": "#ffffff",
+        "couleur_shell_fond": "#10131c",
+        "couleur_accent": "",
+        "afficher_panneau_lateral": True,
+        "largeur_menu": "auto",  # auto / large / etroit
+        "afficher_badges_categories": True,
     },
     # Démarrage
     "demarrage": {

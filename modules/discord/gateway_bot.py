@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import os
 import socket
@@ -60,6 +61,21 @@ class DiscordGatewayClient:
         try:
             self.sock.sendall(frame)
         except Exception:
+            self.connected = False
+
+    def _send_control_frame(self, opcode, payload=b""):
+        """Envoie une trame WebSocket de controle masquee (par ex. PONG)."""
+        if not self.sock:
+            return
+        mask_key = os.urandom(4)
+        if len(payload) > 125:
+            raise ValueError("Les trames WebSocket de controle sont limitees a 125 octets.")
+        frame = bytearray([0x80 | (opcode & 0x0F), 0x80 | len(payload)])
+        frame.extend(mask_key)
+        frame.extend(bytes(byte ^ mask_key[i % 4] for i, byte in enumerate(payload)))
+        try:
+            self.sock.sendall(frame)
+        except OSError:
             self.connected = False
 
     def _recv_frame(self, initial_buffer=b""):
@@ -158,8 +174,14 @@ class DiscordGatewayClient:
                 buf += chunk
 
             header, rest = buf.split(b"\r\n\r\n", 1)
-            if b"101 Switching Protocols" not in header:
-                raise ConnectionError("Handshake Gateway refusé")
+            header_text = header.decode("iso-8859-1")
+            if "101 Switching Protocols" not in header_text:
+                raise ConnectionError("Handshake Gateway refuse")
+            accept_expected = base64.b64encode(
+                hashlib.sha1((sec_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
+            ).decode("ascii")
+            if f"sec-websocket-accept: {accept_expected}" not in header_text.lower():
+                raise ConnectionError("Reponse Sec-WebSocket-Accept invalide")
 
             self.connected = True
             self.log("Connecté physiquement à la Gateway Discord (TLS wss://)")
@@ -169,7 +191,7 @@ class DiscordGatewayClient:
             while self.running:
                 # Heartbeat check
                 now = time.time()
-                if now - last_hb_time >= self.heartbeat_interval:
+                if last_hb_time and now - last_hb_time >= self.heartbeat_interval:
                     self._send_frame({"op": 1, "d": self.last_sequence})
                     last_hb_time = now
 
@@ -183,8 +205,8 @@ class DiscordGatewayClient:
 
                 if opcode is None or opcode == 0x8:  # Close frame
                     break
-                elif opcode == 0x9:  # Ping
-                    self._send_frame({"op": 11})  # Pong
+                elif opcode == 0x9:  # Ping WebSocket: repondre au niveau du protocole
+                    self._send_control_frame(0xA, payload or b"")
                     continue
 
                 if opcode == 0x1:  # Text frame
@@ -219,7 +241,7 @@ class DiscordGatewayClient:
                             "op": 2,
                             "d": {
                                 "token": self.token,
-                                "intents": 3276799,  # Full intents
+                                "intents": 1,  # Guilds uniquement; aucun intent privilegie ni contenu de messages
                                 "properties": {
                                     "os": "Windows",
                                     "browser": "OSINT-Pentest-Suite",
@@ -233,7 +255,7 @@ class DiscordGatewayClient:
                             },
                         }
                         self._send_frame(identify_payload)
-                        self.log("Identifié auprès de Discord avec tous les intents.")
+                        self.log("Identification Gateway envoyee (intent Guilds minimal).")
 
                     elif op == 0:  # Dispatch event
                         if t == "READY":
@@ -242,10 +264,7 @@ class DiscordGatewayClient:
                             u_tag = f"{self.user_data.get('username')}#{self.user_data.get('discriminator', '0')}"
                             self.log(f"SESSION READY : {u_tag} est EN LIGNE !")
                         elif t == "MESSAGE_CREATE":
-                            author = d.get("author", {}).get("username", "?")
-                            content = d.get("content", "")[:35]
-                            if content and not d.get("author", {}).get("bot"):
-                                self.log(f"Message de {author} : {content}")
+                            self.log("Evenement MESSAGE_CREATE recu (contenu non conserve).")
 
                     elif op == 1:  # Heartbeat request
                         self._send_frame({"op": 1, "d": self.last_sequence})
@@ -275,8 +294,15 @@ class DiscordGatewayClient:
     def stop(self):
         self.running = False
         self.connected = False
-        if self.sock:
+        sock = self.sock
+        if sock:
             try:
-                self.sock.close()
-            except Exception:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
                 pass
+            try:
+                sock.close()
+            except OSError:
+                pass
+        if self.thread and self.thread is not threading.current_thread():
+            self.thread.join(timeout=2)
