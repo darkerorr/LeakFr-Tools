@@ -1,0 +1,4 @@
+OK
+config loaded
+theme: #ff5fd2
+common OK

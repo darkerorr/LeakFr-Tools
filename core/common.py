@@ -1,5 +1,6 @@
 import csv
 import math
+import os
 import re
 import socket
 import sys
@@ -38,6 +39,32 @@ C_ASTRO = "#9d8cff"
 C_GOLD = "#ffd166"
 C_PENTEST = "#ff9500"
 C_DISCORD = "#5865F2"
+
+# Configuration et thème (import différé)
+_CONFIG = None
+_THEME = None
+
+
+def initialiser_theme(config: dict):
+    global C_OSINT, C_RECON, C_CYBER, C_UTIL, C_ASTRO, C_GOLD, C_PENTEST, C_DISCORD
+    global _CONFIG, _THEME
+    from core.theme import appliquer_theme
+    _CONFIG = config
+    palette = appliquer_theme(config)
+    _THEME = palette
+    C_OSINT = palette.get("principale", C_OSINT)
+    C_RECON = palette.get("secondaire", C_RECON)
+    C_CYBER = palette.get("erreurs", C_CYBER)
+    C_UTIL = palette.get("succes", C_UTIL)
+    C_ASTRO = palette.get("principale", C_ASTRO)
+    C_GOLD = palette.get("titres", C_GOLD)
+    C_PENTEST = palette.get("avertissements", C_PENTEST)
+    C_DISCORD = palette.get("secondaire", C_DISCORD)
+
+
+def obtenir_theme() -> dict:
+    return _THEME or {}
+
 
 DISCORD_EPOCH = 1420070400000
 
