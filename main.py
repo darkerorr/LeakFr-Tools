@@ -31,7 +31,7 @@ from core.common import (
     console, arc, texte_arc, bad, warn, ok, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW,
     BANNER, C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
-    initialiser_theme, obtenir_theme, obtenir_config_ui
+    initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause
 )
 from core.config import charger, sauvegarder, restaurer_defauts, DEFAUTS
 from core.cases import (
@@ -108,7 +108,7 @@ def _ecran_parametres():
 
         t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
         t.add_column("N.", style="bold", width=3)
-        t.add_column("Option", width=30)
+        t.add_column("Option", width=40)
         t.add_column("Valeur actuelle")
 
         app = _CONFIG.get("apparence", {})

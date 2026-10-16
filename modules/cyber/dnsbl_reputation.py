@@ -1,4 +1,5 @@
 import re
+import concurrent.futures
 import socket
 from rich.table import Table
 from core.common import console, demander, titre, ok, bad, warn, barre, nettoyer_cible, resoudre, BX, C_CYBER, OKC, KOC

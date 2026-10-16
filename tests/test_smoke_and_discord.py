@@ -146,6 +146,142 @@ def test_visual_settings_are_persistent_and_apply_to_rendered_menu(monkeypatch):
     main._appliquer_configuration_visuelle()
 
 
+def test_menu_entry_into_settings_does_not_raise_title_error(monkeypatch):
+    keys = iter(["s", "q"])
+
+    class FakeTouches:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def lire(self, timeout=0.04):
+            return next(keys)
+
+    monkeypatch.setattr(main, "Touches", FakeTouches)
+    monkeypatch.setattr(main, "_intro_ascii", lambda _config: None)
+    monkeypatch.setattr(main, "_ecran_parametres", lambda: None)
+    monkeypatch.setattr(main.console, "clear", lambda: None)
+    main.menu_interactif()
+
+
+def test_settings_screen_runs_and_has_expected_options(monkeypatch):
+    import core.common as common_ui
+    from rich.prompt import Prompt
+
+    output = io.StringIO()
+    monkeypatch.setattr(common_ui.console, "file", output)
+    monkeypatch.setattr(main.console, "clear", lambda: None)
+    monkeypatch.setattr(Prompt, "ask", lambda *args, **kwargs: "0")
+    monkeypatch.setattr(common_ui, "pause", lambda: None)
+    main._ecran_parametres()
+    rendered = output.getvalue()
+    assert "PARAMETRES" in rendered
+    assert "Style d'interface" in rendered
+    assert "Couleur du texte shell" in rendered
+    assert "Personnaliser les couleurs du theme" in rendered
+
+
+def test_concurrent_modules_import_the_executor_explicitly():
+    import ast
+    import importlib
+
+    for path in Path("modules").rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        if "concurrent.futures" not in source:
+            continue
+        tree = ast.parse(source)
+        imports_concurrent = any(
+            isinstance(node, ast.Import) and any(
+                alias.name == "concurrent.futures" or alias.name == "concurrent"
+                for alias in node.names
+            )
+            for node in ast.walk(tree)
+        )
+        assert imports_concurrent, f"{path} uses concurrent.futures without import"
+        importlib.import_module(".".join(path.with_suffix("").parts))
+
+
+def test_pseudo_search_runs_concurrently_with_mocked_responses(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from modules.osint import pseudo_search as search_module
+
+    class Progress:
+        def add_task(self, *args, **kwargs):
+            return 1
+        def advance(self, *args, **kwargs):
+            pass
+
+    @contextmanager
+    def fake_barre():
+        yield Progress()
+
+    monkeypatch.setattr(search_module, "demander", lambda *_args, **_kwargs: "example_test")
+    monkeypatch.setattr(search_module, "barre", fake_barre)
+    monkeypatch.setattr(search_module.requests, "get", lambda *args, **kwargs: SimpleNamespace(status_code=404))
+    search_module.recherche_pseudo()
+
+
+def test_dns_bruteforce_runs_concurrently_with_mocked_resolver(monkeypatch, tmp_path):
+    from contextlib import contextmanager
+    import importlib
+    dns_module = importlib.import_module("modules.pentest.dns_bruteforce")
+
+    wordlist = tmp_path / "hosts.txt"
+    wordlist.write_text("www\nmail\n", encoding="utf-8")
+
+    class Progress:
+        def add_task(self, *args, **kwargs):
+            return 1
+        def advance(self, *args, **kwargs):
+            pass
+
+    @contextmanager
+    def fake_barre():
+        yield Progress()
+
+    monkeypatch.setattr(dns_module, "warn_pentest", lambda: True)
+    answers = iter(["example.test", str(wordlist)])
+    monkeypatch.setattr(dns_module, "demander", lambda *_args, **_kwargs: next(answers))
+    monkeypatch.setattr(dns_module, "barre", fake_barre)
+    def fake_resolve(host):
+        if host.startswith("www."):
+            return host, [], ["192.0.2.10"]
+        raise OSError("not found")
+    monkeypatch.setattr(dns_module.socket, "gethostbyname_ex", fake_resolve)
+    dns_module.dns_bruteforce()
+
+
+def test_directory_bruteforce_runs_concurrently_with_mocked_http(monkeypatch, tmp_path):
+    from contextlib import contextmanager
+    import importlib
+    from types import SimpleNamespace
+    dir_module = importlib.import_module("modules.pentest.dir_bruteforce")
+
+    wordlist = tmp_path / "paths.txt"
+    wordlist.write_text("admin\nrobots.txt\n", encoding="utf-8")
+
+    class Progress:
+        def add_task(self, *args, **kwargs):
+            return 1
+        def advance(self, *args, **kwargs):
+            pass
+
+    @contextmanager
+    def fake_barre():
+        yield Progress()
+
+    monkeypatch.setattr(dir_module, "warn_pentest", lambda: True)
+    answers = iter(["http://example.test", str(wordlist), "200"])
+    monkeypatch.setattr(dir_module, "demander", lambda *_args, **_kwargs: next(answers))
+    monkeypatch.setattr(dir_module, "barre", fake_barre)
+    def fake_get(url, **_kwargs):
+        status = 200 if url.endswith("/admin") else 404
+        return SimpleNamespace(status_code=status, content=b"ok", headers={"Content-Type": "text/plain"})
+    monkeypatch.setattr(dir_module.requests, "get", fake_get)
+    dir_module.dir_bruteforce()
+
+
 def test_screenshots_cover_every_module_and_readme_link():
     screenshots = Path("docs/screenshots")
     assert (screenshots / "menu-principal.svg").is_file()

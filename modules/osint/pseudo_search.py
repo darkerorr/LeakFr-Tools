@@ -1,3 +1,4 @@
+import concurrent.futures
 import requests
 from rich.table import Table
 from rich.markup import escape
