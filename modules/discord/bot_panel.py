@@ -214,7 +214,7 @@ def _render_identite(bot_data, guilds, selected, gateway):
     table.add_row("Bot", _tag(bot_data))
     table.add_row("ID", str(bot_data.get("id", "?")))
     table.add_row("Cree le", _date_snowflake(str(bot_data.get("id", ""))))
-    table.add_row("Serveurs accessibles", str(len(guilds)))
+    table.add_row("Serveurs visibles (REST)", str(len(guilds)))
     table.add_row("Serveur cible", selected or "Aucun")
     return Panel(table, box=BX, border_style=C_DISCORD,
                  title=f"[bold {C_DISCORD}] Identite [/]", title_align="left")
@@ -223,13 +223,25 @@ def _render_identite(bot_data, guilds, selected, gateway):
 def _render_gateway(gateway):
     latence = gateway.latency_ms
     uptime = gateway.uptime_seconds
+    etat = getattr(gateway, "etat", None)
+    if not isinstance(etat, str) or not etat:
+        etat = "connectee" if gateway.connected else "arretee"
+    libelles = {
+        "connectee": ("CONNECTEE", "bold green"),
+        "reconnexion": ("RECONNEXION EN COURS", "bold yellow"),
+        "demarrage": ("INITIALISATION", "bold cyan"),
+        "arretee": ("DECONNECTEE", "bold red"),
+    }
+    libelle, style = libelles.get(etat, ("DECONNECTEE", "bold red"))
+    serveurs = getattr(gateway, "guild_count", None)
     table = Table.grid(padding=(0, 2))
     table.add_column(style=f"bold {C_DISCORD}", width=22)
     table.add_column()
-    table.add_row("Gateway", Text("CONNECTEE" if gateway.connected else "DECONNECTEE",
-                                  style="bold green" if gateway.connected else "bold red"))
-    table.add_row("Latence", f"{latence} ms" if latence is not None else "—")
-    table.add_row("Session", f"{uptime} s" if uptime is not None else "—")
+    table.add_row("Gateway", Text(libelle, style=style))
+    table.add_row("Latence", f"{latence} ms" if latence is not None else "indisponible")
+    table.add_row("Session", f"{uptime} s" if uptime is not None else "indisponible")
+    table.add_row("Serveurs (cache Gateway)",
+                  str(serveurs) if serveurs is not None else "indisponible")
     table.add_row("Intents", "guilds : oui · members : non · message_content : non")
     table.add_row("Derniere erreur", gateway.last_error or "Aucune")
 
@@ -1611,7 +1623,9 @@ def _menu_connexion(api, etat, gateway, token):
             nom_activite = ""
             url = ""
             if type_activite is not None:
-                nom_activite = demander("Texte de l'activite", "Auditing Security").strip()
+                # Aucun texte d'activite impose : laisser vide n'envoie aucune
+                # activite personnalisee, seul le statut est applique.
+                nom_activite = demander("Texte de l'activite (vide = aucune)", "").strip()
                 if type_activite == 1:
                     url = demander("URL du stream", "https://twitch.tv/discord").strip()
             succes, message = gateway.update_presence(STATUTS[statut_nom], nom_activite,

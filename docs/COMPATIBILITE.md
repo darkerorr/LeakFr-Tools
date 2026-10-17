@@ -23,6 +23,8 @@ le système réellement détecté.
 | Privilèges élevés | Aucun requis | Aucun requis pour les outils fournis | Aucun root requis par l’application | Aucun requis |
 | Photographie/GIF (Pillow) | Message explicite si absent | Message explicite si absent | Installation à valider | Message explicite si absent |
 | Gateway Discord (`discord.py`) | Message explicite si absent | Message explicite si absent | Optionnel, message explicite | Message explicite si absent |
+| Mode `--bot` (session en ligne) | Non exécuté (couvert par la CI) | **Testé avec un faux client `discord.py`** (aucun token réel) | Non exécuté sur téléphone | Non exécuté (couvert par la CI) |
+| Introduction et bannière de démarrage | Non exécuté (couvert par la CI) | **Testé** (vérifications réelles, durée, modes texte/téléphone/interactif) | Rendu `--phone` simulé | Non exécuté (couvert par la CI) |
 
 ## Binaires externes et correction
 
@@ -59,10 +61,24 @@ pkg install iproute2 traceroute
   explicite et le journal local n’enregistre pas de faux succès.
 - Le diagnostic est accessible dans **Paramètres → Compatibilité des outils**.
 
+## Intégration continue
+
+Le workflow `.github/workflows/ci.yml` est suivi par Git (`.gitignore` ne l’exclut plus). Il cible
+`ubuntu-latest`, `windows-latest` et `macos-latest` avec Python 3.9 et 3.12, puis compile, vérifie
+les imports/le catalogue/la compatibilité, l’interface CLI (`--version`, `--help`) et exécute pytest.
+
+- Aucun run de CI n’a pu être consulté depuis cet environnement : seule la présence et la portée du
+  fichier sont vérifiées localement.
+- **Termux/Android n’est pas simulé depuis Linux dans la CI** : un contrôle sur un appareil Android
+  réel reste nécessaire pour valider Termux de bout en bout.
+
 ## Ce qui n’a pas été validé
 
 - Aucune exécution réelle sur un téléphone Android/Termux : la détection Termux est testée
   par simulation des variables `PREFIX`, `TERMUX_VERSION` et `ANDROID_ROOT`, pas sur appareil.
+- Aucune connexion Discord réelle : le mode `--bot` est validé avec un faux client `discord.py`
+  (cache des serveurs après `READY`, reconnexion, timeout, présence). L’établissement d’une vraie
+  session Gateway avec un token valide n’a donc pas été prouvé.
 - Aucune exécution sur Windows ni macOS dans ce dépôt ; les branches de commandes sont
   choisies automatiquement mais n’ont pas été lancées.
 - Les tests réseau utilisent des serveurs locaux éphémères ou des sessions simulées ;

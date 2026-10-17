@@ -36,7 +36,7 @@ from rich.text import Text
 # Core & Helpers
 from core.common import (
     console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
-    CONN_T, CONN_L, PIPE, ARROW, FULL, EMPTY, OKC, ANIMATIONS,
+    CONN_T, CONN_L, PIPE, ARROW, FULL, EMPTY, OKC,
     BANNER, BANNER_SOUS_TITRE, BANNER_TAGLINE,
     C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
     initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause,
@@ -391,22 +391,83 @@ def duree_intro(apparence):
     return max(0.0, min(INTRO_DUREE_MAX, valeur))
 
 
-def etapes_intro(config):
-    """Etapes reelles du demarrage (aucune valeur inventee, aucun secret)."""
+def animations_actives():
+    """Etat courant des animations lu dans ``core.common``.
+
+    ``configurer_affichage()`` met a jour la variable du module ``core.common``
+    apres le chargement de la configuration : relire cette variable evite de
+    garder une copie obsolète faite a l'import de ``main``.
+    """
+    import core.common as common_ui
+    return bool(getattr(common_ui, "ANIMATIONS", False))
+
+
+def _outils_du_catalogue():
+    return [fn for _cat, _couleur, outils in CATALOGUE for _nom, _desc, fn in outils]
+
+
+def verifications_intro(config):
+    """Verifications reellement effectuees avant l'affichage du demarrage.
+
+    Chaque entree porte son resultat : aucun etat positif n'est affiche sans
+    controle correspondant, et une valeur indisponible est dite telle.
+    """
+    import importlib.util
     from core.theme import nommer_theme
-    nb_outils = sum(len(outils) for _cat, _couleur, outils in CATALOGUE)
+
+    app = (config or {}).get("apparence", {}) or {}
+    outils = _outils_du_catalogue()
+    noms = [nom for _cat, _couleur, groupes in CATALOGUE for nom, _desc, _fn in groupes]
+    catalogue_ok = (bool(outils) and all(callable(fn) for fn in outils)
+                    and len(set(noms)) == len(noms)
+                    and all(nom in _ROUTE_PAR_NOM for nom in noms))
+    resultats = [{
+        "nom": "Catalogue",
+        "ok": catalogue_ok,
+        "detail": (f"{len(outils)} outils / {len(CATALOGUE)} categories"
+                   if catalogue_ok else "catalogue incomplet"),
+    }]
+
     try:
         environnement = libelle_environnement(detecter_environnement()["cle"])
+        env_ok = bool(environnement)
     except Exception:
-        environnement = "inconnu"
-    app = (config or {}).get("apparence", {}) or {}
-    return [
-        ("Catalogue", f"{nb_outils} outils / {len(CATALOGUE)} categories"),
-        ("Environnement", environnement),
-        ("Python", platform.python_version()),
-        ("Theme", nommer_theme(app.get("theme_actif", "original"))),
-        ("Modules", "prets"),
-    ]
+        environnement, env_ok = "indisponible", False
+    resultats.append({"nom": "Environnement", "ok": env_ok, "detail": environnement})
+
+    version = platform.python_version()
+    resultats.append({"nom": "Python", "ok": sys.version_info >= (3, 9),
+                      "detail": version})
+
+    try:
+        theme = nommer_theme(app.get("theme_actif", "original"))
+        theme_ok = bool(theme)
+    except Exception:
+        theme, theme_ok = "indisponible", False
+    resultats.append({"nom": "Theme", "ok": theme_ok, "detail": theme})
+
+    modules = sorted({getattr(fn, "__module__", "") for fn in outils} - {""})
+    indisponibles = []
+    for nom_module in modules:
+        try:
+            if importlib.util.find_spec(nom_module) is None:
+                indisponibles.append(nom_module)
+        except (ImportError, ValueError, AttributeError):
+            indisponibles.append(nom_module)
+    modules_ok = bool(modules) and not indisponibles
+    resultats.append({
+        "nom": "Modules",
+        "ok": modules_ok,
+        "detail": (f"{len(modules)} modules importables"
+                   if modules_ok else f"{len(indisponibles)} module(s) indisponible(s)"),
+    })
+    return resultats
+
+
+def etapes_intro(config):
+    """Lignes (nom, detail) issues des verifications reelles du demarrage."""
+    return [(verification["nom"], verification["detail"])
+            for verification in verifications_intro(config)]
 
 
 def resume_banniere(config):
@@ -434,26 +495,36 @@ def afficher_banniere(config):
 
 
 def _animer_intro(config, duree):
-    """Animation de demarrage : etapes, jauge puis revelation du logo."""
+    """Animation de demarrage : revelation des verifications, jauge, logo.
+
+    Les verifications sont deja effectuees avant l'appel : l'animation ne
+    simule aucun chargement, elle revele progressivement des resultats reels
+    (la jauge n'est qu'un repere visuel de duree).
+    """
     palette = obtenir_theme()
-    etapes = etapes_intro(config)
-    seuils = (0.10, 0.28, 0.46, 0.62, 0.78)[:len(etapes)]
+    verifications = verifications_intro(config)
+    seuils = (0.10, 0.28, 0.46, 0.62, 0.78)[:len(verifications)]
     largeur_jauge = max(12, min(34, (console.width or 80) - 34))
     debut = time.monotonic()
 
     def rendu():
         ecoule = time.monotonic() - debut
         progression = 1.0 if duree <= 0 else min(1.0, ecoule / duree)
-        lignes = [Align.center(Text("INITIALISATION DU TOOLKIT",
+        lignes = [Align.center(Text("VERIFICATION DU DEMARRAGE",
                                    style=f"bold {palette.get('principale', C_OSINT)}")),
                   Text("")]
-        for seuil, (nom, detail) in zip(seuils, etapes):
-            fait = progression >= seuil
+        for seuil, verification in zip(seuils, verifications):
+            revele = progression >= seuil
+            reussi = bool(verification["ok"])
             ligne = Text()
-            ligne.append(f"{OKC} " if fait else "- ",
-                         style="bold green" if fait else "dim")
-            ligne.append(f"{nom:<14}", style="bold white" if fait else "dim")
-            ligne.append(detail, style="dim" if fait else "grey37")
+            if revele:
+                ligne.append(f"{OKC} " if reussi else "KO ",
+                             style="bold green" if reussi else "bold red")
+            else:
+                ligne.append("\u00b7 ", style="dim")
+            ligne.append(f"{verification['nom']:<14}",
+                         style="bold white" if revele else "dim")
+            ligne.append(verification["detail"], style="dim" if revele else "grey37")
             lignes.append(Align.center(ligne))
         lignes.append(Text(""))
         remplies = int(round(largeur_jauge * progression))
@@ -476,6 +547,10 @@ def _animer_intro(config, duree):
         while time.monotonic() < fin:
             live.update(rendu())
             time.sleep(0.05)
+        # Derniere image a 100 % : le resultat final des verifications est
+        # toujours visible, meme si la derniere frame intermediaire etait a 97 %.
+        live.update(rendu())
+        time.sleep(0.12)
 
 
 def _intro_ascii(config):
@@ -498,9 +573,13 @@ def _intro_ascii(config):
     duree = duree_intro(app)
     # Sans terminal interactif (redirection, pipe, CI) l'animation n'a pas de sens.
     interactif = bool(getattr(sys.stdout, "isatty", lambda: False)())
-    if ANIMATIONS and UNICODE and duree > 0 and interactif:
+    if animations_actives() and UNICODE and duree > 0 and interactif:
         try:
             _animer_intro(config, duree)
+        except KeyboardInterrupt:
+            # Ctrl+C pendant l'introduction : sortie propre, pas de trace.
+            console.print()
+            raise QuitterApplication
         except Exception:
             # Une animation ne doit jamais empecher l'outil de demarrer.
             pass
@@ -1170,6 +1249,9 @@ def main():
     parser.add_argument("--bot", action="store_true",
                         help="demarre le bot Discord et le laisse en ligne "
                              "(token dans LEAKFR_DISCORD_BOT_TOKEN)")
+    parser.add_argument("--bot-interval", type=float, default=None, metavar="SECONDES",
+                        help="intervalle d'actualisation de l'etat du bot "
+                             "(1 a 300 s, defaut 5)")
     parser.add_argument("--phone", action="store_true",
                         help="force le rendu mobile et la pagination réduite")
     parser.add_argument("--env", choices=[cle for cle, _ in ENVIRONNEMENTS],
@@ -1184,11 +1266,18 @@ def main():
         UNICODE = False
         BX = box.ASCII
         CONN_T, CONN_L, PIPE = ("|-- ", "`-- ", "|   ")
+    _appliquer_configuration_visuelle()
     if args.bot:
         # Mode service : aucun menu, aucune animation, le bot reste en ligne.
-        from modules.discord.bot_runner import demarrer_bot
-        return demarrer_bot()
-    _intro_ascii(_CONFIG)
+        from modules.discord.bot_runner import (
+            INTERVALLE_DEFAUT, demarrer_bot, normaliser_intervalle,
+        )
+        return demarrer_bot(intervalle=normaliser_intervalle(
+            args.bot_interval if args.bot_interval is not None else INTERVALLE_DEFAUT))
+    try:
+        _intro_ascii(_CONFIG)
+    except QuitterApplication:
+        return 0
     _initialiser_environnement(args.env)
     while True:
         try:

@@ -1,0 +1,58 @@
+name: CI
+
+# Le workflow ne teste que des plateformes réellement disponibles dans GitHub
+# Actions. Termux/Android n'est pas simulé ici : la détection Termux n'est
+# couverte que par des tests unitaires de variables ; un contrôle sur un
+# appareil Android réel doit être fait manuellement (voir docs/COMPATIBILITE.md).
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pytest-asyncio
+
+      - name: Compiler tous les modules
+        run: python -m compileall -q main.py core modules scripts tests
+
+      - name: Vérifier les imports et le catalogue
+        run: python -c "import main; print(len(main.CATALOGUE), len(main.FLAT) - 1)"
+
+      - name: Vérifier la détection d'environnement et la compatibilité
+        run: |
+          python -c "from core.environment import detecter_environnement; print(detecter_environnement()['cle'])"
+          python -c "import core.compat as c; rapport = c.rapport_compatibilite(); print(len(rapport), [l['outil'] for l in rapport])"
+
+      - name: Vérifier l'absence de références supprimées
+        shell: bash
+        run: |
+          if grep -rn "modules\.generators\|generer_script\|GENERATEURS" --include="*.py" main.py core modules tests; then
+            echo "Référence morte détectée"; exit 1
+          fi
+
+      - name: Vérifier l'interface CLI
+        run: |
+          python main.py --version
+          python -c "import main, subprocess, sys; aide = subprocess.run([sys.executable, 'main.py', '--help'], capture_output=True, text=True, check=True).stdout; assert '--no-intro' in aide and '--bot' in aide, aide"
+
+      - name: Tests
+        run: python -m pytest -q

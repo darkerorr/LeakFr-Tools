@@ -103,7 +103,9 @@ def conseils_jeton_bot(jeton):
         "ton application > Bot > Reset Token.",
         "Un token de compte utilisateur ou un secret OAuth2 ne fonctionne "
         "pas ici : seul un token de bot est accepte (aucun selfbot).",
-        "Un token regenere ou partage est revoque par Discord : cree-en un nouveau.",
+        "Un token regenere ou revoque ne fonctionne plus : si le token a ete "
+        "expose (capture, depot Git, journal, message), revoque-le puis "
+        "reinitialise-le depuis le portail developpeur.",
     ])
     return conseils
 
@@ -241,9 +243,10 @@ class DiscordAPI:
             return {} if defaut is None else defaut
 
     def _message_erreur(self, response):
+        """Message d'erreur externe, toujours expurge avant affichage."""
         donnees = self._json(response, defaut={})
         if isinstance(donnees, dict):
-            return str(donnees.get("message") or "")[:300]
+            return redact(str(donnees.get("message") or ""))[:300]
         return ""
 
     # ------------------------------------------------------------------

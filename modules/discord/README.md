@@ -16,14 +16,19 @@ Le panel Bot ouvre une session de travail (REST + Gateway) ; le mode `--bot` ser
 ```bash
 export LEAKFR_DISCORD_BOT_TOKEN="ton-token-de-bot"   # sinon saisie masquée demandée
 export PYTHONPATH=. && python3 main.py --bot
+python3 main.py --bot --bot-interval 30   # actualisation de l'état (1 à 300 s)
 ```
 
 | Étape | Comportement réel |
 |---|---|
-| Token | Lu dans `LEAKFR_DISCORD_BOT_TOKEN` ou saisi masqué ; normalisé (`Bot `, guillemets, espaces) et jamais persisté. |
+| Token | Lu dans `LEAKFR_DISCORD_BOT_TOKEN` ou saisi masqué ; normalisé (`Bot `, guillemets, espaces) et jamais persisté. Un token exposé doit être **révoqué puis réinitialisé** depuis le portail développeur : Discord ne le fait pas automatiquement. |
 | Vérification | `GET /users/@me` avec l’en-tête `Bot <token>` ; un refus 401 affiche la cause et les pistes (token révoqué, token de compte utilisateur, secret OAuth2). |
 | Connexion | Gateway `discord.py` avec les seuls intents non privilégiés (`guilds`) ; un refus d’intents privilégiés est signalé explicitement. |
-| Session | Nom, serveurs rejoints, latence et uptime affichés en boucle jusqu’à `Ctrl+C`, puis déconnexion propre. |
+| Serveurs | Nombre issu du **cache de la Gateway**, lu après `READY` ; `indisponible` si la valeur n’est pas encore connue. Aucun comptage via `GET /users/@me/guilds`, et jamais zéro à la place d’une erreur. |
+| Reconnexion | Une coupure temporaire passe l’état à `reconnexion` sans fermer la session ; l’uptime réel est conservé et la boucle ne s’arrête qu’à l’arrêt définitif du client ou sur `Ctrl+C`. |
+| Affichage | Vue compacte actualisée en place dans un terminal interactif ; une seule ligne par changement d’état en sortie non interactive. |
+| Présence | Aucune activité personnalisée par défaut ; une activité configurée est conservée et n’est pas écrasée par une reconnexion. |
+| Erreurs | Token refusé (401), permissions (403), introuvable (404), débit (429), réseau, réponse non JSON et erreur inattendue sont distingués ; les fabriques de client ne laissent fuiter aucun secret dans les messages. |
 
 Aucun token n’est écrit dans `data/` : `local_store.py` et le journal du panel n’acceptent que des données non sensibles.
 

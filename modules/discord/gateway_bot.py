@@ -28,9 +28,12 @@ class DiscordGatewayClient:
         self._token = (token or "").strip()
         self._client_factory = client_factory
         self.connected = False
+        self.reconnecting = False
         self.running = False
         self.presence_status = "online"
-        self.activity_name = "Auditing Security"
+        # Aucune activite personnalisee par defaut : on n'ecrase pas la presence
+        # du bot avec un texte arbitraire a chaque connexion.
+        self.activity_name = ""
         self.activity_type = 0
         self.stream_url = ""
         self.user_data = {}
@@ -40,8 +43,10 @@ class DiscordGatewayClient:
         self._client = None
         self._loop = None
         self._thread = None
+        self._ready = False
         self._started = threading.Event()
         self._closed = threading.Event()
+        self._arret_demande = threading.Event()
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -82,8 +87,46 @@ class DiscordGatewayClient:
         return round(latence * 1000)
 
     @property
+    def guild_count(self):
+        """Serveurs reellement charges dans le cache discord.py.
+
+        Retourne ``None`` tant que la Gateway n'a pas recu READY : aucune
+        valeur n'est inventee et aucune estimation REST n'est utilisee.
+        """
+        client = self._client
+        if client is None or not self._ready:
+            return None
+        guildes = getattr(client, "guilds", None)
+        if guildes is None:
+            return None
+        try:
+            return len(guildes)
+        except TypeError:
+            return None
+
+    @property
+    def session_ouverte(self):
+        """Vrai tant que le thread Gateway vit encore (reconnexion incluse)."""
+        thread = self._thread
+        if thread is None or not thread.is_alive():
+            return False
+        return not self._closed.is_set()
+
+    @property
+    def etat(self):
+        """Etat lisible : connectee, reconnexion, demarrage ou arretee."""
+        if self.connected:
+            return "connectee"
+        if self.reconnecting and self.session_ouverte:
+            return "reconnexion"
+        if self.session_ouverte:
+            return "demarrage"
+        return "arretee"
+
+    @property
     def uptime_seconds(self):
-        if not self.started_at or not self.connected:
+        """Duree reelle depuis le premier READY, meme pendant une reconnexion."""
+        if not self.started_at:
             return None
         return max(0, int(time.time() - self.started_at))
 
@@ -106,8 +149,12 @@ class DiscordGatewayClient:
                 return False
             self.running = True
             self.last_error = None
+            self._ready = False
+            self.reconnecting = False
+            self.started_at = None
             self._started.clear()
             self._closed.clear()
+            self._arret_demande.clear()
             self._thread = threading.Thread(target=self._thread_main,
                                             name="discord-gateway", daemon=True)
             self._thread.start()
@@ -115,7 +162,11 @@ class DiscordGatewayClient:
         if not self._started.wait(timeout):
             self.last_error = "Delai de connexion Gateway depasse."
             self.log(self.last_error)
-            self.stop()
+            # Arret demande avant que le client soit pret : aucun thread ne
+            # doit continuer une connexion que l'appelant a abandonnee.
+            if not self.stop(timeout=max(1.0, timeout)):
+                self.log("Arret force : le thread Gateway ne repond pas au delai.")
+                self._closed.wait(max(1.0, timeout))
             return False
         return self.connected
 
@@ -129,7 +180,10 @@ class DiscordGatewayClient:
             self._erreur(exc)
         finally:
             self.connected = False
+            self.reconnecting = False
             self.running = False
+            self._ready = False
+            self.started_at = None
             try:
                 loop.run_until_complete(loop.shutdown_asyncgens())
             except BaseException:  # noqa: BLE001 - fermeture best effort
@@ -143,14 +197,26 @@ class DiscordGatewayClient:
     async def _run(self):
         intents = discord.Intents.none()
         intents.guilds = True
+        if self._arret_demande.is_set():
+            return
         client = (self._client_factory(intents) if self._client_factory
                   else discord.Client(intents=intents, chunk_guilds_at_startup=False))
         self._client = client
+        if self._arret_demande.is_set():
+            # stop() a ete demande pendant la creation du client : on ferme
+            # sans ouvrir de session residuelle.
+            await client.close()
+            return
 
         @client.event
         async def on_ready():
+            if self._arret_demande.is_set():
+                return
             self.connected = True
-            self.started_at = time.time()
+            self.reconnecting = False
+            self._ready = True
+            if self.started_at is None:
+                self.started_at = time.time()
             utilisateur = client.user
             self.user_data = {
                 "id": str(getattr(utilisateur, "id", "") or ""),
@@ -159,9 +225,15 @@ class DiscordGatewayClient:
             }
             self.log("Gateway connectee : session READY.")
             try:
-                await client.change_presence(status=self._statut_discord(),
-                                             activity=self._activite_discord())
-            except (discord.HTTPException, OSError) as exc:
+                # Sans activite configuree, on applique seulement le statut
+                # standard : aucune activite arbitraire n'est imposee.
+                activite = self._activite_discord()
+                if activite is None:
+                    await client.change_presence(status=self._statut_discord())
+                else:
+                    await client.change_presence(status=self._statut_discord(),
+                                                 activity=activite)
+            except (discord.HTTPException, OSError, TypeError, ValueError) as exc:
                 self._erreur(exc)
             finally:
                 self._started.set()
@@ -169,11 +241,14 @@ class DiscordGatewayClient:
         @client.event
         async def on_disconnect():
             self.connected = False
+            self.reconnecting = True
             self.log("Connexion Gateway perdue ; discord.py tente une reconnexion.")
 
         @client.event
         async def on_resumed():
             self.connected = True
+            self.reconnecting = False
+            self._ready = True
             self.log("Session Gateway reprise.")
 
         try:
@@ -192,6 +267,7 @@ class DiscordGatewayClient:
             self._erreur(exc)
         finally:
             self.connected = False
+            self.reconnecting = False
             try:
                 if not client.is_closed():
                     await client.close()
@@ -264,21 +340,26 @@ class DiscordGatewayClient:
     # Arret
     # ------------------------------------------------------------------
     def stop(self, timeout=5):
-        """Ferme la connexion et attend la fin du thread."""
+        """Ferme la connexion, la boucle et le thread ; True si tout est arrete."""
         self.running = False
+        self._arret_demande.set()
         client, loop = self._client, self._loop
         if client is not None and loop is not None and loop.is_running():
             try:
                 futur = asyncio.run_coroutine_threadsafe(client.close(), loop)
                 futur.result(timeout=timeout)
             except (concurrent.futures.TimeoutError, RuntimeError, OSError):
-                futur = None
+                pass
             except Exception:  # noqa: BLE001 - fermeture best effort
                 pass
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=timeout)
+        en_vie = bool(thread is not None and thread.is_alive())
         self.connected = False
-        self._client = None
+        self.reconnecting = False
+        if not en_vie:
+            self._client = None
+            self.started_at = None
         self.log("Bot deconnecte (session Gateway fermee).")
-        return not (thread is not None and thread.is_alive())
+        return not en_vie
