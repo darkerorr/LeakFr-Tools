@@ -16,9 +16,10 @@ Contrôles HTTP/TLS et inspection locale de données fournies par l’utilisateu
 | Recherche CVE | Recherche des entrées CVE via les sources disponibles. | ![CVE](../../docs/screenshots/modules/cyber/recherche-cve.svg) |
 | Latence TCP | Mesure une connexion TCP et éventuellement une bannière légère. | ![Latence](../../docs/screenshots/modules/cyber/latence-tcp.svg) |
 | Test CORS | Observe les en-têtes CORS renvoyés par une cible. | ![CORS](../../docs/screenshots/modules/cyber/test-cors.svg) |
+| Webhook Lab | Envoie un payload JSON synthétique vers une URL de test et affiche statut, durée et erreurs. Aucune donnée de la machine n'est collectée. | ![Webhook Lab](../../docs/screenshots/modules/cyber/webhook-lab.svg) |
 
 ## Utilisation
 
-Lancez `python3 main.py` puis choisissez **CYBER**. Pour les tests réseau, ne ciblez que vos propres systèmes ou un actif explicitement autorisé. Ne partagez pas les JWT ou données qui y sont encodées.
+Lancez `python3 main.py` puis choisissez **CYBER** dans le catalogue en arbre. Pour les tests réseau, ne ciblez que vos propres systèmes ou un actif explicitement autorisé. Ne partagez pas les JWT ou données qui y sont encodées.
 
 Les illustrations sont des aperçus statiques du menu, et non des résultats d’audit.

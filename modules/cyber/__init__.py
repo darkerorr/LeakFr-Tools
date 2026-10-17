@@ -8,3 +8,4 @@ from modules.cyber.jwt_decoder import jwt_inspect
 from modules.cyber.cve_search import recherche_cve
 from modules.cyber.tcp_latency import latence_tcp
 from modules.cyber.cors_check import cors_check
+from modules.cyber.webhook_lab import webhook_lab

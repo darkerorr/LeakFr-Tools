@@ -4,6 +4,10 @@ import io
 import json
 import re
 import socket
+import subprocess
+import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -16,10 +20,11 @@ bot_panel_module = importlib.import_module("modules.discord.bot_panel")
 
 def test_catalogue_contains_all_modules_and_maps_actions():
     total = sum(len(options) for _, _, options in main.CATALOGUE)
-    assert total == 82
+    assert total == 85
     assert sum(1 for item in main.FLAT if item["fn"]) == total
     assert len(main.ACTIONS) == total + 2
-    assert len(main.NAV_GROUPS) == 8
+    assert len(main.CATALOGUE) == 8
+    assert len(main.NAV_GROUPS) == 8  # recherches et alias fonctionnels restent disponibles
     assert main.SEL == main.NUM_IDX["1"]
     assert main.FLAT[main.SEL]["nom"] == "Recherche de pseudo"
     routed_names = set(main._ROUTE_PAR_NOM)
@@ -29,13 +34,13 @@ def test_catalogue_contains_all_modules_and_maps_actions():
     utility_names = {name for name, _, _ in main.CATALOGUE[5][2]}
     assert {"Generateur de mot de passe", "Formateur JSON", "Analyseur de texte",
             "Generateur UUID", "Convertisseur de bases", "Calculateur de dates",
-            "Corpus cas limites HTTP"} <= utility_names
+            "Corpus cas limites HTTP", "Audit de la machine"} <= utility_names
 
 
 def test_global_search_finds_function_aliases_and_direct_routing():
     found = main.rechercher_outils("certificat tls")
     assert [tool["nom"] for tool in found] == ["Certificat SSL/TLS"]
-    assert found[0]["chemin_navigation"] == "SECURITE WEB > TLS & identité"
+    assert found[0]["chemin_navigation"] == "CYBER"
     assert main.rechercher_outils("TLS")
     assert main.rechercher_outils("subnet")[0]["nom"] == "Calculateur CIDR"
     assert main.rechercher_outils("  ") == []
@@ -57,24 +62,22 @@ def test_navigation_routes_every_catalogue_tool_through_its_path(monkeypatch):
     for tool in main.FLAT:
         if not tool["fn"]:
             continue
-        category_name, section_name = tool["chemin_navigation"].split(" > ")
-        choices = iter([category_name, section_name, main._libelle_resultat(tool)])
+        category_name = main.CATALOGUE[tool["cat"]][0]
+        choices = iter([category_name, tool["nom"]])
         monkeypatch.setattr(main, "selectionner_option", lambda *_args, _choices=choices, **_kwargs: next(_choices))
         assert main.menu_simple() == tool["num"], tool["nom"]
 
 
-def test_navigation_invalid_cancel_and_escape_returns_to_root(monkeypatch):
-    choices = iter([None, "OSINT", "Menu principal", "Quitter"])
+def test_original_menu_cancel_and_category_back(monkeypatch):
+    choices = iter(["OSINT", "Retour", None])
     monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
-    monkeypatch.setattr(main.console, "clear", lambda: None)
     assert main.menu_simple() == "0"
 
 
-def test_navigation_searches_and_opens_result_directly(monkeypatch):
+def test_original_menu_search_shortcut_opens_result_directly(monkeypatch):
     choices = iter(["Recherche globale"])
     monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
     monkeypatch.setattr(main, "recherche_globale", lambda: "42")
-    monkeypatch.setattr(main.console, "clear", lambda: None)
     assert main.menu_simple() == "42"
 
 
@@ -91,6 +94,128 @@ def test_http_edge_corpus_is_local_deterministic_and_includes_boundaries(tmp_pat
     module.generer_corpus_http()
     generated = json.loads(destination.read_text(encoding="utf-8"))
     assert generated == corpus
+
+
+def test_system_audit_is_local_deterministic_and_exposes_no_secrets(monkeypatch):
+    module = importlib.import_module("modules.utils.system_audit")
+
+    def connexion_interdite(*_args, **_kwargs):
+        raise AssertionError("l'audit ne doit ouvrir aucune connexion")
+
+    monkeypatch.setattr(socket.socket, "connect", connexion_interdite)
+    monkeypatch.setattr(socket.socket, "connect_ex", connexion_interdite)
+    infos = module.collecter_identite()
+    assert infos["network_requests"] is False
+    assert infos["hwid"] == module.calculer_hwid(infos["composants"])
+    assert len(infos["hwid"].replace("-", "")) == 32
+    assert infos["hwid"] == module.collecter_identite()["hwid"]
+    assert infos["systeme"]["hote"]
+    assert not hasattr(module, "requests")
+    assert module.calculer_hwid({"machine-id": "abc"}) == module.calculer_hwid({"machine-id": "abc"})
+    assert module.calculer_hwid({"machine-id": "abc"}) != module.calculer_hwid({"machine-id": "def"})
+
+
+def test_script_generator_produces_standalone_local_script(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    source = module.construire_script({"systeme", "hashes", "fichier", "json"})
+    assert "webhook" not in source.lower()
+    assert "socket" not in source
+    assert "urllib" not in source
+    script = tmp_path / "rapport.py"
+    script.write_text(source, encoding="utf-8")
+
+    run = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+    assert "HWID" in run.stdout
+    assert (tmp_path / "d").mkdir() is None
+    (tmp_path / "d" / "a.txt").write_text("abc", encoding="utf-8")
+
+    run = subprocess.run([sys.executable, str(script), "hash", str(tmp_path / "d")],
+                         capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+    assert "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" in run.stdout
+
+    run = subprocess.run([sys.executable, str(script), "fichier", str(tmp_path / "d" / "a.txt")],
+                         capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+    assert "text/plain" in run.stdout
+
+    monkeypatch.chdir(tmp_path)
+    reponses = iter(["1 2", "sortie.py"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
+    monkeypatch.setattr(module.Confirm, "ask", lambda *_args, **_kwargs: False)
+    module.generer_script()
+    genere = tmp_path / "sortie.py"
+    assert genere.is_file()
+    assert genere.read_text(encoding="utf-8") == module.construire_script({"systeme", "hashes"})
+
+
+def test_webhook_lab_posts_synthetic_payload_to_local_server():
+    module = importlib.import_module("modules.cyber.webhook_lab")
+    recu = {}
+
+    class Recepteur(BaseHTTPRequestHandler):
+        def do_POST(self):
+            longueur = int(self.headers.get("Content-Length", "0"))
+            recu["corps"] = json.loads(self.rfile.read(longueur))
+            self.send_response(201)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+
+        def log_message(self, *_args):
+            pass
+
+    serveur = ThreadingHTTPServer(("127.0.0.1", 0), Recepteur)
+    thread = threading.Thread(target=serveur.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{serveur.server_port}/hook"
+        resultat = module.envoyer_payload(url, module.payload_modele())
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+
+    assert resultat["ok"] is True
+    assert resultat["statut"] == 201
+    assert resultat["duree_ms"] >= 0
+    assert resultat["erreur"] is None
+    assert "ok" in resultat["corps"]
+    assert recu["corps"]["event"] == "leakfr.webhook.test"
+    assert set(recu["corps"]) == {"event", "message", "timestamp", "reference", "donnees"}
+
+
+def test_webhook_lab_validates_input_and_reports_network_errors(monkeypatch):
+    module = importlib.import_module("modules.cyber.webhook_lab")
+    assert module.valider_url(" http://127.0.0.1:8000/hook ") == "http://127.0.0.1:8000/hook"
+    for invalide in ("", "ftp://exemple.tld/hook", "http://", "http://exemple.tld/a b"):
+        with pytest.raises(ValueError):
+            module.valider_url(invalide)
+    assert module.valider_timeout("2,5") == 2.5
+    for invalide in ("zero", "0", "-1", "500"):
+        with pytest.raises(ValueError):
+            module.valider_timeout(invalide)
+
+    payload = module.payload_modele()
+    assert "hostname" not in json.dumps(payload).lower()
+    assert "machine-id" not in json.dumps(payload)
+
+    vide = socket.socket()
+    vide.bind(("127.0.0.1", 0))
+    port = vide.getsockname()[1]
+    vide.close()
+    refus = module.envoyer_payload(f"http://127.0.0.1:{port}/hook", payload, timeout=2)
+    assert refus["ok"] is False
+    assert refus["statut"] is None
+    assert refus["erreur"]
+
+    def delai_depasse(*_args, **_kwargs):
+        raise module.requests.Timeout()
+
+    monkeypatch.setattr(module.requests, "post", delai_depasse)
+    expire = module.envoyer_payload("http://127.0.0.1:9/hook", payload, timeout=1)
+    assert expire["ok"] is False
+    assert "delai depasse" in expire["erreur"]
 
 
 def test_help_and_version_cli(capsys, monkeypatch):
@@ -205,20 +330,21 @@ def test_visual_settings_are_persistent_and_apply_to_rendered_menu(monkeypatch):
     assert obtenir_theme()["principale"] == "#12abef"
     rendered = main.construire_menu(main.NUM_IDX["1"], "", 0)
     from rich.console import Console
-    terminal = Console(file=io.StringIO(), width=100, force_terminal=True, record=True)
+    terminal = Console(file=io.StringIO(), width=100, force_terminal=False, record=True)
 
     terminal.print(rendered)
     output = terminal.file.getvalue()
     assert "INSPECTEUR" not in output
-    assert "LEAKFR-TOOLS" in output
-    assert "RESEAU & LABORATOIRE" in output
-    assert "Recherche globale" in output
+    assert "SUITE DE SECURITE & RECON" in output
+    assert "PENTEST & RESEAU" in output
+    assert "s : parametres" in output
+    assert "recherche" in output.lower()
     monkeypatch.setattr(main, "_CONFIG", deepcopy(DEFAUTS))
     main._appliquer_configuration_visuelle()
 
 
 def test_menu_settings_route_opens_settings_then_returns_to_main(monkeypatch):
-    choices = iter(["Configuration", "Quitter"])
+    choices = iter(["Parametres", "Quitter"])
     transitions = []
     monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
     monkeypatch.setattr(main, "_ecran_parametres", lambda: transitions.append("settings-open"))

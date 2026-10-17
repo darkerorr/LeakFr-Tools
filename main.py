@@ -54,7 +54,8 @@ from modules.recon import (
 )
 from modules.cyber import (
     audit_headers, scan_ports, certificat_ssl, chaine_redirect,
-    cookie_audit, dnsbl_check, jwt_inspect, recherche_cve, latence_tcp, cors_check
+    cookie_audit, dnsbl_check, jwt_inspect, recherche_cve, latence_tcp, cors_check,
+    webhook_lab
 )
 from modules.pentest import (
     scan_ports_avance, banner_grabbing, scan_reseau_local, scan_wifi,
@@ -72,12 +73,13 @@ from modules.utils import (
     identifier_hash, generateur_hash, encode_decode, force_mdp,
     calc_reseau, hash_fichier, luhn_check, user_agent_parse, timestamp_outil,
     generer_mot_de_passe, formater_json, analyser_texte, generer_uuid,
-    convertir_base, calculer_dates, generer_corpus_http,
+    convertir_base, calculer_dates, generer_corpus_http, audit_systeme,
 )
 from modules.astro import (
     iss, apod, asteroides, planetes, lancements,
     recherche_astre, lune_soleil, convertisseur, poids_planetes
 )
+from modules.generators import generer_script
 
 # --- Configuration globale ---
 _CONFIG = charger()
@@ -388,6 +390,7 @@ CATALOGUE = [
         ("Recherche CVE", "CIRCL / NVD", recherche_cve),
         ("Latence TCP", "RTT + banner leger", latence_tcp),
         ("Test CORS", "Allow-Origin / credentials", cors_check),
+        ("Webhook Lab", "Envoi de payload JSON synthetique, statut et duree", webhook_lab),
     ]),
     ("PENTEST & RESEAU", C_PENTEST, [
         ("Scan de ports avance", "Range custom + banner grabbing", scan_ports_avance),
@@ -439,6 +442,10 @@ CATALOGUE = [
         ("Convertisseur de bases", "Binaire, octal, decimal, hexadecimal", convertir_base),
         ("Calculateur de dates", "Duree entre deux dates", calculer_dates),
         ("Corpus cas limites HTTP", "Fixtures locales de fuzzing de parseurs HTTP", generer_corpus_http),
+        ("Audit de la machine", "HWID et inventaire local, sans reseau", audit_systeme),
+    ]),
+    ("GENERATEURS", C_GOLD, [
+        ("Generateur de scripts", "Scripts Python locaux autonomes, sans reseau", generer_script),
     ]),
     ("ASTRONOMIE", C_ASTRO, [
         ("ISS en direct", "Position + equipage", iss),
@@ -463,8 +470,8 @@ ACTIONS = {f["num"]: f["fn"] for f in FLAT if f["fn"]}
 NUM_IDX = {f["num"]: i for i, f in enumerate(FLAT)}
 SEL = NUM_IDX["1"]
 
-# La navigation est un arbre de tâches ; les fonctions restent définies une seule
-# fois dans CATALOGUE, puis sont référencées ici par leur nom stable.
+# Les groupes fonctionnels enrichissent la recherche, tandis que l'interface garde
+# les catégories et l'ordre du catalogue d'origine.
 NAV_GROUPS = [
     ("OSINT", C_OSINT, "Recherches publiques et sources ouvertes", [
         ("Identités & profils", "Pseudos, numéros et pistes de recherche", [
@@ -483,7 +490,8 @@ NAV_GROUPS = [
     ]),
     ("SECURITE WEB", C_CYBER, "Contrôles HTTP, TLS et données applicatives", [
         ("HTTP & navigateur", "En-têtes, cookies, CORS et redirections", [
-            "Audit des headers", "Chaine de redirections", "Audit des cookies", "Test CORS"]),
+            "Audit des headers", "Chaine de redirections", "Audit des cookies", "Test CORS",
+            "Webhook Lab"]),
         ("TLS & identité", "Certificats et inspection locale de JWT", [
             "Certificat SSL/TLS", "Decodeur JWT"]),
         ("Réputation & vulnérabilités", "Sources de réputation et références CVE", [
@@ -533,36 +541,16 @@ NAV_GROUPS = [
 
 _OUTILS_PAR_NOM = {outil["nom"]: outil for outil in FLAT if outil["fn"]}
 _ROUTE_PAR_NOM = {}
-NAVIGATION = []
-for _categorie, _couleur, _description, _sections in NAV_GROUPS:
-    _cat_node = {"label": _categorie, "description": _description, "color": _couleur, "children": []}
-    for _section, _section_desc, _noms in _sections:
-        _section_node = {"label": _section, "description": _section_desc, "children": []}
-        for _nom in _noms:
-            _outil = _OUTILS_PAR_NOM[_nom]
-            _outil["categorie_navigation"] = _categorie
-            _outil["section_navigation"] = _section
-            _outil["chemin_navigation"] = f"{_categorie} > {_section}"
-            _section_node["children"].append({
-                "label": _outil["nom"], "description": _outil["desc"],
-                "action": _outil["num"], "tool": _outil,
-            })
-            _ROUTE_PAR_NOM[_nom] = _outil["chemin_navigation"]
-        if _section_node["children"]:
-            _cat_node["children"].append(_section_node)
-    if _categorie == "DOSSIERS & RAPPORTS":
-        _section_node["children"].extend([
-            {"label": "Gestion des dossiers", "description": "Créer, annoter, sourcer et exporter une investigation", "action": "cases"},
-            {"label": "Historique local", "description": "Consulter les dernières opérations enregistrées", "action": "history"},
-        ])
-        _cat_node["children"].append(_section_node)
-    NAVIGATION.append(_cat_node)
+for _categorie, _couleur, _outils in CATALOGUE:
+    for _nom, _description, _fonction in _outils:
+        _outil = _OUTILS_PAR_NOM[_nom]
+        _outil["categorie_navigation"] = _categorie
+        _outil["section_navigation"] = _categorie
+        _outil["chemin_navigation"] = _categorie
+        _ROUTE_PAR_NOM[_nom] = _categorie
 
-NAVIGATION.extend([
-    {"label": "Recherche globale", "description": "Retrouver un outil par nom, catégorie ou fonction", "action": "search"},
-    {"label": "Configuration", "description": "Thèmes, interface et préférences", "action": "settings"},
-    {"label": "Quitter", "description": "Fermer LeakFr-Tools", "action": "quit"},
-])
+# Ces groupes alimentent les alias de recherche et les métadonnées des outils,
+# mais ne modifient pas le menu principal en arbre.
 def _selectionner_dossier(titre_menu):
     dossiers = lister_cases()
     if not dossiers:
@@ -678,11 +666,14 @@ MOTS_CLES_RECHERCHE = {
     "Audit des headers": "headers entêtes csp hsts x-frame-options",
     "Certificat SSL/TLS": "https certificat x509 tls expiration",
     "Test CORS": "cross origin navigateur cors",
+    "Webhook Lab": "webhook endpoint http post payload json test integration",
     "Decodeur JWT": "token bearer json web token",
     "Fuzzing headers HTTP": "fuzz edge cases malformed request",
     "Generateur wordlist": "dictionnaire mutations jeu de données",
     "Calculateur CIDR": "subnet masque réseau ip",
     "Corpus cas limites HTTP": "http protocol parser fuzzing edge cases corpus fixtures",
+    "Generateur de scripts": "script python autonome pyinstaller executable hwid rapport machine modele",
+    "Audit de la machine": "hwid machine identifiant systeme inventaire hostname",
     "Dossiers & rapports": "case investigation notes sources dossier",
 }
 
@@ -743,31 +734,169 @@ def recherche_globale():
 
 
 def construire_menu(sel, buf, t, msg="", tout=False):
-    """Rendu compact du menu principal, partagé par les captures et le terminal."""
+    parts = []
     ui_cfg = obtenir_config_ui()
     palette = obtenir_theme()
-    parts = []
-    parts.append(Align.center(Text("LEAKFR-TOOLS · CYBERSECURITY WORKBENCH", style=f"bold {palette.get('principale', C_OSINT)}")))
-    parts.append(Align.center(Text("Menu principal  >  choisissez un domaine ou recherchez un outil", style="dim")))
-    parts.append(Text(""))
+    haut = console.height or 30
 
-    tableau = Table(box=BX, border_style=palette.get("bordures", C_GOLD),
-                    header_style=f"bold {C_GOLD}", title="DOMAINES")
-    tableau.add_column("Catégorie", style="bold")
-    tableau.add_column("Sous-catégories", justify="right")
-    tableau.add_column("Outils")
-    for node in NAVIGATION:
-        if node.get("children"):
-            count = sum(len(section.get("children", [])) for section in node["children"])
-            tableau.add_row(node["label"], str(len(node["children"])), node["description"])
-        else:
-            tableau.add_row(node["label"], "—", node["description"])
-    parts.append(Align.center(tableau))
-    parts.append(Text(""))
-    side = Text("Flèches haut/bas · Entrée ouvrir · Échap retour · Ctrl-C annuler/quitter", justify="center")
-    if msg:
-        side.append(f"  ·  {msg}", style="bold yellow")
-    parts.append(Align.center(Panel(side, border_style="grey42", box=BX)))
+    if UNICODE and haut >= 36:
+        for y, ligne in enumerate(BANNER):
+            parts.append(Align.center(texte_arc(ligne, t, y * 5)))
+    else:
+        parts.append(Align.center(texte_arc(">  O S I N T  &  P E N T E S T   T O O L B O X  <", t, 0)))
+
+    # Badges de categories au centre
+    badges = Text(justify="center")
+    badges_liste = [
+        ("OSINT", C_OSINT),
+        ("RECON", C_RECON),
+        ("CYBER", C_CYBER),
+        ("PENTEST", C_PENTEST),
+        ("DISCORD", C_DISCORD),
+        ("UTILS", C_UTIL),
+        ("GEN", C_GOLD),
+        ("ASTRO", C_ASTRO),
+    ]
+    if ui_cfg.get("afficher_badges_categories", True):
+        for idx, (b_nom, b_col) in enumerate(badges_liste):
+            badges.append(f" {b_nom} ", style=f"bold black on {b_col}")
+            if idx < len(badges_liste) - 1:
+                badges.append("  ")
+        parts.append(Align.center(badges))
+        parts.append(Text(""))
+
+    cat_sel = FLAT[sel]["cat"] if 0 <= sel < len(FLAT) else None
+    item_sel = FLAT[sel] if 0 <= sel < len(FLAT) else None
+
+    # Construction de l'arbre (colonne de gauche)
+    arbre = [texte_arc(("* " if UNICODE else "* ") + "SUITE DE SECURITE & RECON", t, 0)]
+    ln = 0
+    categories_dynamiques = [
+        palette.get("principale", C_OSINT), palette.get("secondaire", C_RECON),
+        palette.get("erreurs", C_CYBER), palette.get("avertissements", C_PENTEST),
+        palette.get("secondaire", C_DISCORD), palette.get("succes", C_UTIL),
+        palette.get("principale", C_ASTRO),
+    ]
+    style_ui = ui_cfg.get("style_interface", "dashboard")
+    for ci, (cat, couleur_defaut, opts) in enumerate(CATALOGUE):
+        couleur = categories_dynamiques[ci] if ci < len(categories_dynamiques) else couleur_defaut
+        ln += 1
+        ouvert = tout or ci == cat_sel
+        l = texte_arc(CONN_T, t, ln * 4)
+        l.append(("v " if UNICODE else "v ") if ouvert else ("> " if UNICODE else "> "),
+                 style=f"bold {couleur}")
+        l.append(f"{cat:<16}", style=f"bold {couleur}")
+        l.append(f" [{len(opts)} modules]", style="grey50")
+        arbre.append(l)
+        if not ouvert:
+            continue
+        items = [f for f in FLAT if f["cat"] == ci]
+        for oi, f in enumerate(items):
+            ln += 1
+            dernier = oi == len(items) - 1
+            l = texte_arc(PIPE, t, ln * 4)
+            l.append_text(texte_arc(CONN_L if dernier else CONN_T, t, ln * 4 + 4))
+            est_actif = (FLAT.index(f) == sel)
+            if est_actif:
+                l.append(f" {f['nom']} ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
+                l.append(f"  {f['desc']}", style="white")
+            else:
+                l.append(f"{f['nom']}", style="white")
+                l.append(f"  {f['desc']}", style="grey50")
+            arbre.append(l)
+
+    ln += 1
+    l = texte_arc(CONN_L, t, ln * 4)
+    quit_idx = NUM_IDX["0"]
+    if sel == quit_idx:
+        l.append("  Quitter la suite ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
+    else:
+        l.append(" Quitter", style="red")
+    arbre.append(l)
+
+    boite_ui = box.SQUARE if style_ui == "classique" else (box.MINIMAL if style_ui == "compact" else BX)
+    couleur_bordure = palette.get("bordures", arc(0, t, 0.3))
+    panneau_arbre = Panel(
+        Group(*arbre),
+        box=boite_ui,
+        border_style=couleur_bordure if style_ui != "dashboard" else arc(0, t, 0.3),
+        padding=(0, 2),
+        title=texte_arc(" [ CATALOGUE D'OUTILS ] ", t, 0),
+        title_align="left"
+    )
+
+    # Volet lateral / Encart d'information (Dashboard sur le cote)
+    total_outils = sum(len(opts) for _, _, opts in CATALOGUE)
+    nom_cat = CATALOGUE[cat_sel][0] if cat_sel is not None and cat_sel < len(CATALOGUE) else "General"
+    col_cat = CATALOGUE[cat_sel][1] if cat_sel is not None and cat_sel < len(CATALOGUE) else C_GOLD
+
+    side_elements = []
+    side_elements.append(Text.from_markup(f"[bold {palette.get('secondaire', 'cyan')}]> ETAT SYSTEME[/]"))
+
+    side_elements.append(Text.from_markup(f". Modules dispos : [bold green]{total_outils}[/]"))
+    side_elements.append(Text.from_markup(f". Categories     : [bold yellow]{len(CATALOGUE)}[/]"))
+    side_elements.append(Text.from_markup(f". OS             : [bold white]{platform.system()} {platform.release()}[/]"))
+    side_elements.append(Text(""))
+
+    side_elements.append(Text.from_markup(f"[bold {col_cat}]> INSPECTEUR[/]"))
+    if item_sel and item_sel["num"] != "0":
+        side_elements.append(Text.from_markup(f". Nom        : [bold white]{escape(item_sel['nom'])}[/]"))
+        side_elements.append(Text.from_markup(f". Domaine    : [bold {col_cat}]{nom_cat}[/]"))
+        side_elements.append(Text.from_markup(f". Role       : [dim italic]{escape(item_sel['desc'])}[/]"))
+    elif item_sel and item_sel["num"] == "0":
+        side_elements.append(Text.from_markup(f"[bold red]Quitter le programme[/]"))
+        side_elements.append(Text.from_markup(f"[dim]Ferme la console et libere les sockets.[/]"))
+    else:
+        side_elements.append(Text.from_markup(f"[dim]Survole un outil pour inspecter[/]"))
+
+    side_elements.append(Text(""))
+    side_elements.append(Text.from_markup(f"[bold magenta]>  RACCOURCIS[/]"))
+    side_elements.append(Text.from_markup(f"[bold white]^ / v[/]   : Naviguer"))
+    side_elements.append(Text.from_markup(f"[bold white]Entree[/]  : Executer"))
+    side_elements.append(Text.from_markup(f"[bold white]s[/]       : Parametres"))
+    side_elements.append(Text.from_markup(f"[bold white]/[/]       : Recherche globale"))
+    side_elements.append(Text.from_markup(f"[bold white]d[/]       : Dossiers & rapports"))
+    side_elements.append(Text.from_markup(f"[bold white]h[/]       : Historique"))
+    side_elements.append(Text.from_markup(f"[bold white]q[/]       : Quitter"))
+
+    panneau_side = Panel(
+        Group(*side_elements),
+        box=boite_ui,
+        border_style=col_cat,
+        padding=(0 if style_ui == "compact" else 1, 1 if style_ui == "compact" else 2),
+        title=f"[bold {col_cat}] INFO & CONTROLE [/]",
+        title_align="center"
+    )
+
+    w_console = console.width or 100
+    afficher_side = (style_ui == "dashboard" and ui_cfg.get("afficher_panneau_lateral", True))
+    largeur_mode = ui_cfg.get("largeur_menu", "auto")
+    if largeur_mode == "large":
+        w_console = max(w_console, 115)
+    elif largeur_mode == "etroit":
+        w_console = min(w_console, 78)
+    if w_console >= 82 and not tout and afficher_side:
+        layout_table = Table.grid(padding=(0, 1))
+        largeur_totale = min(w_console, 115)
+        w_main = int(largeur_totale * 0.64)
+        w_side = int(largeur_totale * 0.36)
+        panneau_arbre.width = w_main
+        panneau_side.width = w_side
+        layout_table.add_column()
+        layout_table.add_column()
+        layout_table.add_row(panneau_arbre, panneau_side)
+        parts.append(Align.center(layout_table))
+    else:
+        panneau_arbre.width = min(w_console, 88)
+        parts.append(Align.center(panneau_arbre))
+
+    if not tout and ui_cfg.get("afficher_aide_menu", True):
+        parts.append(Text(""))
+        aide = Text("Fleches haut/bas : naviguer   Entree : executer   s : parametres   / : recherche   d : dossiers   q : quitter", justify="center")
+        if msg:
+            aide.append(f"   ! {msg}", style="bold red")
+        parts.append(Align.center(Panel(aide, box=BX, border_style="grey42", width=min(w_console, 90))))
+
     return Group(*parts)
 
 class Touches:
@@ -830,110 +959,106 @@ class Touches:
             return "ESC"
         return self._norm(c)
 
-def _naviguer_menu():
-    """Parcours hiérarchique partagé par l'interface terminal et le mode simple."""
-    etiquettes = {node["label"]: node for node in NAVIGATION}
+def menu_interactif():
+    global SEL
+    buf = ""
+    msg = ""
+    t0 = time.time()
+    n = len(FLAT)
+    with Touches() as T, Live(console=console, screen=True, auto_refresh=False) as live:
+        while True:
+            live.update(construire_menu(SEL, buf, time.time() - t0, msg), refresh=True)
+            k = T.lire(0.04)
+            if not k:
+                continue
+            msg = ""
+            if k == "UP":
+                SEL = (SEL - 1) % n
+                buf = ""
+            elif k == "DOWN":
+                SEL = (SEL + 1) % n
+                buf = ""
+            elif k == "ENTER":
+                return FLAT[SEL]["num"]
+            elif k == "ESC":
+                buf = ""
+            elif k in ("s", "S"):
+                T.__exit__(None, None, None)
+                live.stop()
+                try:
+                    _ecran_parametres()
+                finally:
+                    console.clear()
+                    T.__enter__()
+                    live.start()
+                buf = ""
+            elif k in ("/", "r", "R"):
+                T.__exit__(None, None, None)
+                live.stop()
+                try:
+                    result = recherche_globale()
+                finally:
+                    console.clear()
+                    T.__enter__()
+                    live.start()
+                if result:
+                    return result
+                buf = ""
+            elif k in ("d", "D"):
+                T.__exit__(None, None, None)
+                live.stop()
+                try:
+                    _gestion_dossiers()
+                finally:
+                    console.clear()
+                    T.__enter__()
+                    live.start()
+                buf = ""
+            elif k in ("h", "H"):
+                T.__exit__(None, None, None)
+                live.stop()
+                try:
+                    _afficher_historique()
+                finally:
+                    console.clear()
+                    T.__enter__()
+                    live.start()
+                buf = ""
+            elif k in ("q", "Q", "QUIT"):
+                return "0"
+
+def menu_simple():
+    """Fallback console conservant le parcours d'origine : catégorie puis outil."""
+    categories = [nom for nom, _, _ in CATALOGUE]
     while True:
-        console.clear()
-        titre("MENU PRINCIPAL", C_GOLD)
-        table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        table.add_column("Section")
-        table.add_column("Contenu")
-        for node in NAVIGATION:
-            table.add_row(node["label"], node["description"])
-        console.print(table)
-        choix = selectionner_option("MENU PRINCIPAL", list(etiquettes))
-        if choix is None:
+        choix_categorie = selectionner_option(
+            "MENU PRINCIPAL", categories + ["Recherche globale", "Dossiers & rapports",
+                                             "Historique local", "Parametres", "Quitter"]
+        )
+        if choix_categorie is None or choix_categorie == "Quitter":
             return "0"
-        if choix == "Quitter":
-            return "0"
-        node = etiquettes[choix]
-        action = node.get("action")
-        if action == "quit":
-            return "0"
-        if action == "settings":
+        if choix_categorie == "Parametres":
             _ecran_parametres()
             continue
-        if action == "search":
+        if choix_categorie == "Recherche globale":
             result = recherche_globale()
             if result:
                 return result
-            pause()
             continue
-
-        categorie = node
-        while True:
-            console.clear()
-            chemin = f"Menu principal > {categorie['label']}"
-            titre(chemin.upper(), C_GOLD)
-            options = categorie["children"]
-            descriptions = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-            descriptions.add_column("Sous-catégorie")
-            descriptions.add_column("Usage")
-            for section in options:
-                descriptions.add_row(section["label"], section["description"])
-            console.print(descriptions)
-            labels = [section["label"] for section in options]
-            labels.extend(["Recherche globale", "Menu principal"])
-            selection = selectionner_option(chemin, labels)
-            if selection is None or selection == "Menu principal":
-                break
-            if selection == "Recherche globale":
-                result = recherche_globale()
-                if result:
-                    return result
-                continue
-            section = next(item for item in options if item["label"] == selection)
-            if section.get("action") == "cases":
-                _gestion_dossiers()
-                continue
-            if section.get("action") == "history":
-                _afficher_historique()
-                continue
-            while True:
-                chemin_section = f"{chemin} > {section['label']}"
-                console.clear()
-                titre(chemin_section.upper(), categorie.get("color", C_GOLD))
-                outils = section["children"]
-                tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-                tableau.add_column("Outil")
-                tableau.add_column("Fonction")
-                for outil_node in outils:
-                    tableau.add_row(outil_node["label"], outil_node["description"])
-                console.print(tableau)
-                libelles = [(_libelle_resultat(outil_node["tool"]) if "tool" in outil_node
-                             else f"{outil_node['label']} — {outil_node['description']}")
-                            for outil_node in outils]
-                libelles.extend([f"Retour à {categorie['label']}", "Menu principal"])
-                choix_outil = selectionner_option(chemin_section, libelles)
-                if choix_outil is None:
-                    return_to_main = False
-                    break
-                if choix_outil == "Menu principal":
-                    return_to_main = True
-                    break
-                if choix_outil == f"Retour à {categorie['label']}":
-                    return_to_main = False
-                    break
-                selected_node = next((outil_node for outil_node, label in zip(outils, libelles)
-                                      if label == choix_outil), None)
-                if selected_node and "tool" in selected_node:
-                    return selected_node["tool"]["num"]
-                if selected_node and selected_node.get("action"):
-                    return selected_node["action"]
-            if selection == "Menu principal" or return_to_main:
-                break
-    return "0"
-
-
-def menu_interactif():
-    """Navigation fléchée, hiérarchique ; Ctrl-C remonte au gestionnaire principal."""
-    return _naviguer_menu()
-
-
-def menu_simple():
-    """Fallback console utilisant la même arborescence, sans sélection numérique."""
-    return _naviguer_menu()
+        if choix_categorie == "Dossiers & rapports":
+            _gestion_dossiers()
+            continue
+        if choix_categorie == "Historique local":
+            _afficher_historique()
+            continue
+        options = [nom for nom, _, _ in CATALOGUE[categories.index(choix_categorie)][2]]
+        choix_outil = selectionner_option(choix_categorie, options + ["Retour"])
+        if choix_outil is None or choix_outil == "Retour":
+            continue
+        for entree in FLAT:
+            if entree["nom"] == choix_outil:
+                return entree["num"]
+        bad("Outil introuvable dans le catalogue.")
 
 def main():
     global _CONFIG

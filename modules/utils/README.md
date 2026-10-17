@@ -1,6 +1,6 @@
 # Utilitaires — transformations locales
 
-La suite contient maintenant **16 outils**. Les nouveaux utilitaires fonctionnent localement et n’ajoutent aucune dépendance.
+La suite contient maintenant **17 outils**. Les nouveaux utilitaires fonctionnent localement et n’ajoutent aucune dépendance.
 
 Outils essentiellement locaux pour les formats, checksums, valeurs numériques et informations de texte. Les mots de passe saisis ne doivent pas être réutilisés ; le score de robustesse est une estimation.
 
@@ -24,9 +24,10 @@ Outils essentiellement locaux pour les formats, checksums, valeurs numériques e
 | Convertisseur de bases | Convertit des entiers entre binaire, octal, décimal et hexadécimal. | ![Bases](../../docs/screenshots/modules/utils/convertisseur-de-bases.svg) |
 | Calculateur de dates | Calcule une différence ou un décalage entre dates. | ![Dates](../../docs/screenshots/modules/utils/calculateur-de-dates.svg) |
 | Corpus cas limites HTTP | Génère 20 fixtures JSON déterministes pour les parseurs HTTP : doublons, contrôles invalides, Unicode et ambiguïtés de framing. N’émet aucune requête réseau. | ![Corpus HTTP](../../docs/screenshots/modules/utils/corpus-cas-limites-http.svg) |
+| Audit de la machine | Affiche OS, hôte, CPU, mémoire, stockage, interfaces locales et un HWID (SHA-256 des identifiants locaux). Rapport terminal uniquement : aucune requête réseau, aucune donnée écrite ni transmise. | ![Audit machine](../../docs/screenshots/modules/utils/audit-de-la-machine.svg) |
 
 ## Utilisation
 
-Lancez `python3 main.py`, puis ouvrez **Analyse & utilitaires > Réseau & conversions** pour le corpus HTTP (outil local, aucun réseau) ou recherchez `fuzzing` globalement. Les autres utilitaires sont accessibles sous **Analyse & utilitaires**. N’entrez pas de secrets de production : même sans sauvegarde, un terminal ou une capture peut conserver les entrées.
+Lancez `python3 main.py`, ouvrez **UTILITAIRES** puis choisissez le corpus HTTP (outil local, aucun réseau), ou recherchez `fuzzing` depuis le raccourci `/`. Les autres utilitaires sont accessibles dans la même catégorie. N’entrez pas de secrets de production : même sans sauvegarde, un terminal ou une capture peut conserver les entrées.
 
 Les illustrations sont des aperçus statiques du menu, sans données réelles.

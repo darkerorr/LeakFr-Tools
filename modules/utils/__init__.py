@@ -14,3 +14,4 @@ from modules.utils.uuid_generator import generer_uuid
 from modules.utils.base_converter import convertir_base
 from modules.utils.date_calculator import calculer_dates
 from modules.utils.http_edge_corpus import generer_corpus_http
+from modules.utils.system_audit import audit_systeme
