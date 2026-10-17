@@ -63,6 +63,51 @@ def redact(texte, secrets=()):
     return resultat
 
 
+def normaliser_jeton(brut):
+    """Nettoie un token colle a la main (espaces, guillemets, prefixe).
+
+    Retourne une chaine vide si rien d'exploitable. Le resultat n'est jamais
+    journalise ni ecrit sur le disque.
+    """
+    texte = str(brut or "").strip()
+    for guillemet in ('"', "'", "`"):
+        texte = texte.strip(guillemet).strip()
+    while True:
+        minuscule = texte.casefold()
+        if minuscule.startswith("bot "):
+            texte = texte[4:].strip()
+        elif minuscule.startswith("bearer "):
+            texte = texte[7:].strip()
+        else:
+            break
+    return texte
+
+
+def forme_jeton_discord(jeton):
+    """Vrai si la valeur a la forme d'un token Discord (3 parties)."""
+    parties = str(jeton or "").split(".")
+    return len(parties) == 3 and all(len(partie) >= 6 for partie in parties)
+
+
+def conseils_jeton_bot(jeton):
+    """Pistes de diagnostic quand l'authentification ``Bot <jeton>`` echoue.
+
+    Ne contient aucun secret : les conseils ne citent jamais le token recu.
+    """
+    conseils = []
+    if not forme_jeton_discord(jeton):
+        conseils.append("La valeur ne ressemble pas a un token Discord complet "
+                        "(3 parties separees par des points).")
+    conseils.extend([
+        "Recopie le token depuis le portail developpeur : Applications > "
+        "ton application > Bot > Reset Token.",
+        "Un token de compte utilisateur ou un secret OAuth2 ne fonctionne "
+        "pas ici : seul un token de bot est accepte (aucun selfbot).",
+        "Un token regenere ou partage est revoque par Discord : cree-en un nouveau.",
+    ])
+    return conseils
+
+
 def formater_erreur_api(status, message):
     """Message d'erreur lisible sans exposer la requete ni le token."""
     if status == 401:

@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 from rich.prompt import Prompt
 
 from core.common import C_DISCORD, DISCORD_EPOCH, bad, kv, ok, titre, warn
-from modules.discord.discord_api import DiscordAPI, DiscordAPIError, DiscordAuthError
+from modules.discord.discord_api import (
+    DiscordAPI, DiscordAPIError, DiscordAuthError, conseils_jeton_bot, normaliser_jeton,
+)
 
 
 def bot_token_info():
     titre("DISCORD BOT TOKEN INFO & CHECKER", C_DISCORD)
-    token = Prompt.ask("[bold]Token du Bot Discord[/]", password=True).strip()
+    token = normaliser_jeton(Prompt.ask("[bold]Token du Bot Discord[/]", password=True))
     if not token:
         bad("Token absent.")
         return
@@ -19,7 +21,9 @@ def bot_token_info():
         try:
             data = api.me()
         except DiscordAuthError:
-            bad("Token Bot invalide ou revoque (HTTP 401).")
+            bad("Token Bot invalide, revoque ou de mauvais type (HTTP 401).")
+            for conseil in conseils_jeton_bot(token):
+                warn(conseil)
             return
         except DiscordAPIError as exc:
             bad(f"Verification impossible : {exc}")

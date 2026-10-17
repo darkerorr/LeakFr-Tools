@@ -137,8 +137,12 @@ La recherche globale reste accessible depuis le menu principal (« Recherche glo
 ```bash
 python3 main.py --phone      # rendu mobile et pagination réduite
 python3 main.py --text       # mode texte simple, sans couleur ni animation
+python3 main.py --no-intro   # saute l'introduction animée
 python3 main.py --env termux # force l'affichage Termux sans changer l'OS réel
+python3 main.py --bot        # démarre le bot Discord et le laisse en ligne
 ```
+
+L'introduction animée (étapes réelles, jauge puis logo) dure 3,2 s par défaut. Sa durée se règle dans **Paramètres → Durée de l'introduction** (0 à 10 secondes, `0` = bannière instantanée) ; elle est automatiquement ignorée en mode `--text`, sur écran étroit et sans terminal interactif.
 
 ## Installation
 
@@ -230,8 +234,18 @@ python3 main.py --text          # mode texte de secours
 python3 main.py --phone         # rendu mobile / terminal étroit
 python3 main.py --ascii         # polices ASCII uniquement
 python3 main.py --dashboard     # ancien tableau de bord à flèches (desktop)
+python3 main.py --no-intro      # sauter l'introduction animée
 python3 main.py --env macos     # forcer l'environnement d'affichage
 ```
+
+### Bot Discord en ligne (`--bot`)
+
+```bash
+export LEAKFR_DISCORD_BOT_TOKEN="ton-token-de-bot"   # PowerShell : $env:LEAKFR_DISCORD_BOT_TOKEN="..."
+python3 main.py --bot
+```
+
+Le mode `--bot` vérifie le token (`/users/@me`), ouvre la Gateway `discord.py` et laisse le bot **réellement en ligne** avec sa latence et son uptime, jusqu'à `Ctrl+C`. Le token est lu dans la variable d'environnement ou saisi masqué : il n'est jamais écrit sur le disque ni dans les journaux. Seuls les **tokens de bot** sont acceptés. En cas de refus, l'outil explique la cause (token révoqué, mauvais type de token, intents) au lieu d'afficher un faux succès.
 
 ## Architecture
 

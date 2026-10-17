@@ -36,10 +36,11 @@ from rich.text import Text
 # Core & Helpers
 from core.common import (
     console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
-    CONN_T, CONN_L, PIPE, ARROW,
-    BANNER, C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
+    CONN_T, CONN_L, PIPE, ARROW, FULL, EMPTY, OKC, ANIMATIONS,
+    BANNER, BANNER_SOUS_TITRE, BANNER_TAGLINE,
+    C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
     initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause,
-    clear_screen, configurer_affichage, ask_number, est_ecran_etroit,
+    clear_screen, configurer_affichage, ask_number, est_ecran_etroit, demander,
     QuitterApplication,
 )
 from core.config import charger, sauvegarder, restaurer_defauts, DEFAUTS, EXPORTS_DIR
@@ -114,7 +115,8 @@ def _ecran_parametres():
             "Palette de couleurs", "Style d'interface", "Couleur d'accent",
             "Couleur du texte shell", "Fond shell", "Largeur du menu",
             "Panneau lateral", "Badges de categories", "Banniere de demarrage",
-            "Animations", "Timeout reseau", "Environnement (affichage)",
+            "Duree de l'introduction", "Animations", "Timeout reseau",
+            "Environnement (affichage)",
             "Mode texte de secours", "Largeur de sortie", "Pagination",
             "Compatibilite des outils", "Restaurer les parametres par defaut",
             "Personnaliser les couleurs du theme", "Retour au menu principal",
@@ -128,6 +130,9 @@ def _ecran_parametres():
         t.add_row("Panneau lateral", str(app.get("afficher_panneau_lateral", True)))
         t.add_row("Badges de categories", str(app.get("afficher_badges_categories", True)))
         t.add_row("Banniere de demarrage", str(app.get("banniere_demarrage", True)))
+        _duree = duree_intro(app)
+        t.add_row("Duree de l'introduction",
+                  "Instantane (0 s)" if _duree <= 0 else f"{_duree:.1f} s")
         t.add_row("Animations", str(app.get("animations", True)))
         t.add_row("Timeout reseau (s)", str(reseau.get("timeout", 8)))
         env_configure = str(plateforme.get("environnement") or "auto")
@@ -188,6 +193,17 @@ def _ecran_parametres():
             app["afficher_badges_categories"] = not app.get("afficher_badges_categories", True)
         elif c == "Banniere de demarrage":
             app["banniere_demarrage"] = not app.get("banniere_demarrage", True)
+        elif c == "Duree de l'introduction":
+            brut = demander("Duree de l'introduction (0 a 10 secondes, 0 = instantane)",
+                            f"{duree_intro(app):.1f}")
+            try:
+                valeur = float(str(brut).replace(",", "."))
+            except ValueError:
+                bad("Valeur invalide (nombres entre 0 et 10).")
+                continue
+            app["duree_intro"] = max(0.0, min(INTRO_DUREE_MAX, valeur))
+            sauvegarder(_CONFIG)
+            ok(f"Introduction reglee sur {app['duree_intro']:.1f} s.")
         elif c == "Animations":
             app["animations"] = not app.get("animations", True)
         elif c == "Timeout reseau":
@@ -347,60 +363,148 @@ def _menu_themes():
         pause()
 
 
+# ---------------------------------------------------------------------------
+# Introduction & banniere de demarrage
+# ---------------------------------------------------------------------------
+INTRO_DUREE_DEFAUT = 3.2
+INTRO_DUREE_COURTE = 1.2
+INTRO_DUREE_MAX = 10.0
+
+
+def duree_intro(apparence):
+    """Duree de l'introduction en secondes (0 = banniere instantanee).
+
+    La valeur est bornee : une duree negative, enorme ou invalide ne peut pas
+    bloquer le demarrage du toolkit.
+    """
+    apparence = apparence or {}
+    brut = apparence.get("duree_intro")
+    if brut is None:
+        brut = (INTRO_DUREE_DEFAUT if apparence.get("introduction_longue", True)
+                else INTRO_DUREE_COURTE)
+    try:
+        valeur = float(brut)
+    except (TypeError, ValueError):
+        valeur = INTRO_DUREE_DEFAUT
+    if valeur != valeur:  # NaN
+        valeur = INTRO_DUREE_DEFAUT
+    return max(0.0, min(INTRO_DUREE_MAX, valeur))
+
+
+def etapes_intro(config):
+    """Etapes reelles du demarrage (aucune valeur inventee, aucun secret)."""
+    from core.theme import nommer_theme
+    nb_outils = sum(len(outils) for _cat, _couleur, outils in CATALOGUE)
+    try:
+        environnement = libelle_environnement(detecter_environnement()["cle"])
+    except Exception:
+        environnement = "inconnu"
+    app = (config or {}).get("apparence", {}) or {}
+    return [
+        ("Catalogue", f"{nb_outils} outils / {len(CATALOGUE)} categories"),
+        ("Environnement", environnement),
+        ("Python", platform.python_version()),
+        ("Theme", nommer_theme(app.get("theme_actif", "original"))),
+        ("Modules", "prets"),
+    ]
+
+
+def resume_banniere(config):
+    """Ligne d'information du pied de banniere, tronquee si l'ecran est etroit."""
+    etapes = dict(etapes_intro(config))
+    texte = (f"v2.0  |  {etapes['Catalogue']}  |  {etapes['Environnement']}"
+             f"  |  theme {etapes['Theme']}")
+    limite = max(20, (console.width or 80) - 4)
+    return texte if len(texte) <= limite else texte[:limite - 3].rstrip() + "..."
+
+
+def afficher_banniere(config):
+    """Affiche le logo complet (degrade arc-en-ciel) et ses informations."""
+    palette = obtenir_theme()
+    t = time.time()
+    for y, ligne in enumerate(BANNER):
+        console.print(Align.center(texte_arc(ligne, t, y * 4)))
+    console.print()
+    console.print(Align.center(Text(
+        BANNER_SOUS_TITRE, style=f"bold {palette.get('titres', C_GOLD)}")))
+    console.print(Align.center(Text(
+        BANNER_TAGLINE, style=f"dim {palette.get('texte_secondaire', '#888888')}")))
+    console.print(Align.center(Text(resume_banniere(config), style="dim")))
+    console.print()
+
+
+def _animer_intro(config, duree):
+    """Animation de demarrage : etapes, jauge puis revelation du logo."""
+    palette = obtenir_theme()
+    etapes = etapes_intro(config)
+    seuils = (0.10, 0.28, 0.46, 0.62, 0.78)[:len(etapes)]
+    largeur_jauge = max(12, min(34, (console.width or 80) - 34))
+    debut = time.monotonic()
+
+    def rendu():
+        ecoule = time.monotonic() - debut
+        progression = 1.0 if duree <= 0 else min(1.0, ecoule / duree)
+        lignes = [Align.center(Text("INITIALISATION DU TOOLKIT",
+                                   style=f"bold {palette.get('principale', C_OSINT)}")),
+                  Text("")]
+        for seuil, (nom, detail) in zip(seuils, etapes):
+            fait = progression >= seuil
+            ligne = Text()
+            ligne.append(f"{OKC} " if fait else "- ",
+                         style="bold green" if fait else "dim")
+            ligne.append(f"{nom:<14}", style="bold white" if fait else "dim")
+            ligne.append(detail, style="dim" if fait else "grey37")
+            lignes.append(Align.center(ligne))
+        lignes.append(Text(""))
+        remplies = int(round(largeur_jauge * progression))
+        jauge = Text()
+        jauge.append(FULL * remplies, style=f"bold {palette.get('secondaire', C_RECON)}")
+        jauge.append(EMPTY * (largeur_jauge - remplies), style="grey30")
+        jauge.append(f"  {int(progression * 100):3d}%", style="bold white")
+        lignes.append(Align.center(jauge))
+        lignes.append(Text(""))
+        revelees = int(len(BANNER) * max(0.0, (progression - 0.55) / 0.4))
+        for y in range(len(BANNER)):
+            if y < revelees:
+                lignes.append(Align.center(texte_arc(BANNER[y], time.time(), y * 4)))
+            else:
+                lignes.append(Text(""))
+        return Group(*lignes)
+
+    with Live(rendu(), console=console, refresh_per_second=15, transient=True) as live:
+        fin = debut + duree
+        while time.monotonic() < fin:
+            live.update(rendu())
+            time.sleep(0.05)
+
+
 def _intro_ascii(config):
     """Affiche l'introduction ASCII au demarrage."""
-    app = config.get("apparence", {})
-    if not app.get("banniere_demarrage", True):
+    app = (config or {}).get("apparence", {}) or {}
+    if "--no-intro" in sys.argv or not app.get("banniere_demarrage", True):
         return
 
+    palette = obtenir_theme()
     clear_screen()
     if (est_ecran_etroit() or "--text" in sys.argv
             or "--no-color" in sys.argv):
         console.print(Align.center(Text(
             "LeakFr-Tools 2.0",
-            style=f"bold {obtenir_theme().get('principale', '#ff5fd2')}")))
-        console.print(Align.center(Text("OSINT & SECURITY TOOLBOX", style="dim")))
+            style=f"bold {palette.get('principale', C_OSINT)}")))
+        console.print(Align.center(Text(BANNER_TAGLINE, style="dim")))
         console.print()
         return
 
-    anim = (app.get("animations", True)
-            and "--text" not in sys.argv and "--no-color" not in sys.argv
-            and not est_ecran_etroit())
-    palette = obtenir_theme()
-
-    logo = [
-        " █████╗  ██████╗██╗███████╗██╗███╗   ██╗████████╗",
-        "██╔══██╗██╔════╝██║██╔════╝██║████╗  ██║╚══██╔══╝",
-        "███████║██║     ██║█████╗  ██║██╔██╗ ██║   ██║   ",
-        "██╔══██║██║     ██║██╔══╝  ██║██║╚██╗██║   ██║   ",
-        "██║  ██║╚██████╗██║██║     ██║██║ ╚████║   ██║   ",
-        "╚═╝  ╚═╝ ╚═════╝╚═╝╚═╝     ╚═╝╚═╝  ╚═══╝   ╚═╝   ",
-    ]
-
-    # Petite animation de fondu
-    if anim and UNICODE:
-        for etape in range(1, 4):
-            clear_screen()
-            if etape == 1:
-                console.print(Align.center(Text("Initialisation...", style=f"bold {palette.get('principale', '#ff5fd2')}")))
-            elif etape == 2:
-                console.print(Align.center(Text("Chargement de LeakFr-Tools...", style=f"bold {palette.get('secondaire', '#36d1ff')}")))
-            else:
-                for ligne in logo:
-                    console.print(Align.center(Text(ligne, style=f"bold {palette.get('principale', '#ff5fd2')}")))
-                console.print()
-                console.print(Align.center(Text("v2.0  |  OSINT & SECURITY TOOLBOX", style=f"bold {palette.get('titres', '#ffd166')}")))
-                console.print(Align.center(Text("Investigations  |  Reconnaissance  |  Cyber  |  Reseau", style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-            time.sleep(0.15)
-    else:
-        clear_screen()
-        for ligne in logo:
-            console.print(Align.center(Text(ligne, style=f"bold {palette.get('principale', '#ff5fd2')}")))
-        console.print()
-        console.print(Align.center(Text("v2.0  |  OSINT & SECURITY TOOLBOX", style=f"bold {palette.get('titres', '#ffd166')}")))
-        console.print(Align.center(Text("Investigations  |  Reconnaissance  |  Cyber  |  Reseau", style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-        if anim:
-            time.sleep(0.3)
+    duree = duree_intro(app)
+    # Sans terminal interactif (redirection, pipe, CI) l'animation n'a pas de sens.
+    interactif = bool(getattr(sys.stdout, "isatty", lambda: False)())
+    if ANIMATIONS and UNICODE and duree > 0 and interactif:
+        try:
+            _animer_intro(config, duree)
+        except Exception:
+            # Une animation ne doit jamais empecher l'outil de demarrer.
+            pass
+    afficher_banniere(config)
 
 
 # Catalogue, navigation et moteur de recherche : voir core/catalogue.py.
@@ -1061,6 +1165,11 @@ def main():
     parser.add_argument("--ascii", action="store_true", help="privilégie un affichage compatible ASCII")
     parser.add_argument("--text", "--no-color", dest="text", action="store_true",
                         help="mode texte simple, sans couleur ni animation")
+    parser.add_argument("--no-intro", action="store_true",
+                        help="saute l'introduction animee du demarrage")
+    parser.add_argument("--bot", action="store_true",
+                        help="demarre le bot Discord et le laisse en ligne "
+                             "(token dans LEAKFR_DISCORD_BOT_TOKEN)")
     parser.add_argument("--phone", action="store_true",
                         help="force le rendu mobile et la pagination réduite")
     parser.add_argument("--env", choices=[cle for cle, _ in ENVIRONNEMENTS],
@@ -1075,6 +1184,10 @@ def main():
         UNICODE = False
         BX = box.ASCII
         CONN_T, CONN_L, PIPE = ("|-- ", "`-- ", "|   ")
+    if args.bot:
+        # Mode service : aucun menu, aucune animation, le bot reste en ligne.
+        from modules.discord.bot_runner import demarrer_bot
+        return demarrer_bot()
     _intro_ascii(_CONFIG)
     _initialiser_environnement(args.env)
     while True:
@@ -1104,4 +1217,4 @@ def main():
     console.print(texte_arc("A bientot !", time.time(), 0), justify="center")
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

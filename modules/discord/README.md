@@ -9,6 +9,24 @@ Quatre expériences distinctes, complémentaires :
 
 Aucun outil du dépôt n’accepte de token utilisateur copié manuellement. Les self-bots restent hors périmètre. Les tokens Bot sont des secrets : ils ne sont jamais écrits dans les journaux, exports ou captures.
 
+## Mettre le bot en ligne (`python3 main.py --bot`)
+
+Le panel Bot ouvre une session de travail (REST + Gateway) ; le mode `--bot` sert à laisser le bot connecté :
+
+```bash
+export LEAKFR_DISCORD_BOT_TOKEN="ton-token-de-bot"   # sinon saisie masquée demandée
+export PYTHONPATH=. && python3 main.py --bot
+```
+
+| Étape | Comportement réel |
+|---|---|
+| Token | Lu dans `LEAKFR_DISCORD_BOT_TOKEN` ou saisi masqué ; normalisé (`Bot `, guillemets, espaces) et jamais persisté. |
+| Vérification | `GET /users/@me` avec l’en-tête `Bot <token>` ; un refus 401 affiche la cause et les pistes (token révoqué, token de compte utilisateur, secret OAuth2). |
+| Connexion | Gateway `discord.py` avec les seuls intents non privilégiés (`guilds`) ; un refus d’intents privilégiés est signalé explicitement. |
+| Session | Nom, serveurs rejoints, latence et uptime affichés en boucle jusqu’à `Ctrl+C`, puis déconnexion propre. |
+
+Aucun token n’est écrit dans `data/` : `local_store.py` et le journal du panel n’acceptent que des données non sensibles.
+
 ![Aperçu de la catégorie Discord](../../docs/screenshots/categories/discord.svg)
 
 | Outil | Fonction | Aperçu |

@@ -30,7 +30,7 @@ from core.config import DATA_DIR, EXPORTS_DIR
 from modules.discord import permissions as perms
 from modules.discord.discord_api import (
     DiscordAPI, DiscordAPIError, DiscordAuthError, DiscordForbiddenError,
-    DiscordNotFoundError, valid_snowflake,
+    DiscordNotFoundError, conseils_jeton_bot, normaliser_jeton, valid_snowflake,
 )
 from modules.discord.gateway_bot import DiscordGatewayClient
 from modules.discord.local_store import charger_json, ecrire_json
@@ -1597,6 +1597,9 @@ def _menu_connexion(api, etat, gateway, token):
                     ok("Gateway connectee.")
                 else:
                     warn(gateway.last_error or "Connexion non etablie.")
+                    if "401" in str(gateway.last_error or ""):
+                        for conseil in conseils_jeton_bot(token):
+                            warn(conseil)
         elif choix == "Modifier la presence":
             statut_nom = choisir_option("STATUT", list(STATUTS))
             if statut_nom is None:
@@ -1667,7 +1670,8 @@ def bot_panel(guild_id_initial=None):
     if not warn_pentest():
         bad("Audit annule : autorisation requise.")
         return
-    token = Prompt.ask("[bold gold1]Token du Bot Discord[/]", password=True).strip()
+    token = normaliser_jeton(Prompt.ask("[bold gold1]Token du Bot Discord[/]",
+                                        password=True))
     if not token:
         bad("Token absent.")
         return
@@ -1679,7 +1683,9 @@ def bot_panel(guild_id_initial=None):
             try:
                 bot_data = api.me()
             except DiscordAuthError:
-                bad("Token Bot invalide ou revoque (HTTP 401).")
+                bad("Token Bot invalide, revoque ou de mauvais type (HTTP 401).")
+                for conseil in conseils_jeton_bot(token):
+                    warn(conseil)
                 return
             except DiscordAPIError as exc:
                 bad(f"Connexion impossible : {exc}")
