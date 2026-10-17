@@ -152,7 +152,7 @@ python3 main.py --env termux # force l'affichage Termux sans changer l'OS réel
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/darkerorr/LeakFr-Tools.git
+git clone https://github.com/utilisateur-exemple/LeakFr-Tools.git
 cd LeakFr-Tools
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -169,7 +169,7 @@ Si PowerShell bloque l’activation du venv, exécute une fois
 ```bash
 sudo apt install python3 python3-venv python3-pip   # Debian/Ubuntu
 sudo dnf install python3 python3-pip                # Fedora
-git clone https://github.com/darkerorr/LeakFr-Tools.git
+git clone https://github.com/utilisateur-exemple/LeakFr-Tools.git
 cd LeakFr-Tools
 python3 -m venv .venv
 source .venv/bin/activate
@@ -182,7 +182,7 @@ python main.py
 
 ```bash
 brew install python@3.12
-git clone https://github.com/darkerorr/LeakFr-Tools.git
+git clone https://github.com/utilisateur-exemple/LeakFr-Tools.git
 cd LeakFr-Tools
 python3 -m venv .venv
 source .venv/bin/activate
@@ -198,7 +198,7 @@ Termux fournit Python, pip et les outils réseau de base. Aucun accès au stocka
 ```bash
 pkg update && pkg upgrade -y
 pkg install -y git python clang libjpeg-turbo libpng freetype
-git clone https://github.com/darkerorr/LeakFr-Tools.git
+git clone https://github.com/utilisateur-exemple/LeakFr-Tools.git
 cd LeakFr-Tools
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
