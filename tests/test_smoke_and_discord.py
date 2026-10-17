@@ -16,14 +16,81 @@ bot_panel_module = importlib.import_module("modules.discord.bot_panel")
 
 def test_catalogue_contains_all_modules_and_maps_actions():
     total = sum(len(options) for _, _, options in main.CATALOGUE)
-    assert len(main.CATALOGUE) == 7
-    assert total == 81
-    assert len(main.ACTIONS) == total
+    assert total == 82
+    assert sum(1 for item in main.FLAT if item["fn"]) == total
+    assert len(main.ACTIONS) == total + 2
+    assert len(main.NAV_GROUPS) == 8
     assert main.SEL == main.NUM_IDX["1"]
     assert main.FLAT[main.SEL]["nom"] == "Recherche de pseudo"
+    routed_names = set(main._ROUTE_PAR_NOM)
+    catalogue_names = {name for _, _, options in main.CATALOGUE for name, _, _ in options}
+    assert routed_names == catalogue_names
+    assert len(routed_names) == len(catalogue_names)
     utility_names = {name for name, _, _ in main.CATALOGUE[5][2]}
     assert {"Generateur de mot de passe", "Formateur JSON", "Analyseur de texte",
-            "Generateur UUID", "Convertisseur de bases", "Calculateur de dates"} <= utility_names
+            "Generateur UUID", "Convertisseur de bases", "Calculateur de dates",
+            "Corpus cas limites HTTP"} <= utility_names
+
+
+def test_global_search_finds_function_aliases_and_direct_routing():
+    found = main.rechercher_outils("certificat tls")
+    assert [tool["nom"] for tool in found] == ["Certificat SSL/TLS"]
+    assert found[0]["chemin_navigation"] == "SECURITE WEB > TLS & identité"
+    assert main.rechercher_outils("TLS")
+    assert main.rechercher_outils("subnet")[0]["nom"] == "Calculateur CIDR"
+    assert main.rechercher_outils("  ") == []
+    assert main.ACTIONS[found[0]["num"]] is found[0]["fn"]
+    assert "Gestion des dossiers" in [tool["nom"] for tool in main.rechercher_outils("notes sources")]
+
+
+def test_global_search_selection_returns_action_key(monkeypatch):
+    tool = main.rechercher_outils("certificat tls")[0]
+    monkeypatch.setattr(main.Prompt, "ask", lambda *_args, **_kwargs: "certificat tls")
+    monkeypatch.setattr(main, "selectionner_option", lambda _title, choices: choices[0])
+    assert main.recherche_globale() == tool["num"]
+
+
+def test_navigation_routes_every_catalogue_tool_through_its_path(monkeypatch):
+    monkeypatch.setattr(main.console, "clear", lambda: None)
+    monkeypatch.setattr(main.console, "print", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(main, "titre", lambda *_args, **_kwargs: None)
+    for tool in main.FLAT:
+        if not tool["fn"]:
+            continue
+        category_name, section_name = tool["chemin_navigation"].split(" > ")
+        choices = iter([category_name, section_name, main._libelle_resultat(tool)])
+        monkeypatch.setattr(main, "selectionner_option", lambda *_args, _choices=choices, **_kwargs: next(_choices))
+        assert main.menu_simple() == tool["num"], tool["nom"]
+
+
+def test_navigation_invalid_cancel_and_escape_returns_to_root(monkeypatch):
+    choices = iter([None, "OSINT", "Menu principal", "Quitter"])
+    monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
+    monkeypatch.setattr(main.console, "clear", lambda: None)
+    assert main.menu_simple() == "0"
+
+
+def test_navigation_searches_and_opens_result_directly(monkeypatch):
+    choices = iter(["Recherche globale"])
+    monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
+    monkeypatch.setattr(main, "recherche_globale", lambda: "42")
+    monkeypatch.setattr(main.console, "clear", lambda: None)
+    assert main.menu_simple() == "42"
+
+
+def test_http_edge_corpus_is_local_deterministic_and_includes_boundaries(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.utils.http_edge_corpus")
+    corpus = module.construire_corpus_http()
+    ids = {case["id"] for case in corpus["cases"]}
+    assert corpus["network_requests"] is False
+    assert {"duplicate-conflicting", "crlf-in-value", "oversized-value-8k",
+            "conflicting-framing", "unicode-value"} <= ids
+    assert corpus == module.construire_corpus_http()
+    destination = tmp_path / "fixtures" / "http.json"
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: str(destination))
+    module.generer_corpus_http()
+    generated = json.loads(destination.read_text(encoding="utf-8"))
+    assert generated == corpus
 
 
 def test_help_and_version_cli(capsys, monkeypatch):
@@ -141,48 +208,23 @@ def test_visual_settings_are_persistent_and_apply_to_rendered_menu(monkeypatch):
     terminal = Console(file=io.StringIO(), width=100, force_terminal=True, record=True)
 
     terminal.print(rendered)
-    assert "INSPECTEUR" not in terminal.export_text()
+    output = terminal.file.getvalue()
+    assert "INSPECTEUR" not in output
+    assert "LEAKFR-TOOLS" in output
+    assert "RESEAU & LABORATOIRE" in output
+    assert "Recherche globale" in output
     monkeypatch.setattr(main, "_CONFIG", deepcopy(DEFAUTS))
     main._appliquer_configuration_visuelle()
 
 
-def test_menu_settings_key_opens_settings_and_returns_to_main_menu(monkeypatch):
-    keys = iter(["s", "q"])
+def test_menu_settings_route_opens_settings_then_returns_to_main(monkeypatch):
+    choices = iter(["Configuration", "Quitter"])
     transitions = []
-
-    class FakeTouches:
-        def __enter__(self):
-            transitions.append("keyboard-enter")
-            return self
-        def __exit__(self, *args):
-            transitions.append("keyboard-exit")
-            return False
-        def lire(self, timeout=0.04):
-            return next(keys)
-
-    class FakeLive:
-        def __enter__(self):
-            transitions.append("main-start")
-            return self
-        def __exit__(self, *args):
-            transitions.append("main-exit")
-            return False
-        def update(self, *_args, **_kwargs):
-            pass
-        def stop(self):
-            transitions.append("main-stop")
-        def start(self):
-            transitions.append("main-resume")
-
-    monkeypatch.setattr(main, "Touches", FakeTouches)
-    monkeypatch.setattr(main, "Live", lambda **_kwargs: FakeLive())
+    monkeypatch.setattr(main, "selectionner_option", lambda *_args, **_kwargs: next(choices))
     monkeypatch.setattr(main, "_ecran_parametres", lambda: transitions.append("settings-open"))
     monkeypatch.setattr(main.console, "clear", lambda: None)
-    assert main.menu_interactif() == "0"
-    assert transitions == [
-        "keyboard-enter", "main-start", "keyboard-exit", "main-stop",
-        "settings-open", "keyboard-enter", "main-resume", "main-exit", "keyboard-exit",
-    ]
+    assert main.menu_simple() == "0"
+    assert transitions == ["settings-open"]
 
 
 def test_arrow_selector_moves_and_confirms_without_numeric_input(monkeypatch):
