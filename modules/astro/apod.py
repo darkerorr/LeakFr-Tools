@@ -1,10 +1,9 @@
 from datetime import datetime
 import requests
-import webbrowser
 from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Confirm
-from core.common import console, demander, titre, bad, warn, kv, attente, BX, C_ASTRO
+from core.common import console, demander, titre, bad, warn, kv, attente, ouvrir_url, BX, C_ASTRO
 
 def apod():
     titre("IMAGE ASTRONOMIQUE DU JOUR (NASA)", C_ASTRO)
@@ -42,4 +41,4 @@ def apod():
     console.print(Panel(Text(d.get("explanation", "")), box=BX, border_style=C_ASTRO,
                         title=f"[bold {C_ASTRO}]Explication (en anglais)[/]"))
     if url and Confirm.ask("Ouvrir dans le navigateur ?", default=True):
-        webbrowser.open(url)
+        ouvrir_url(url)

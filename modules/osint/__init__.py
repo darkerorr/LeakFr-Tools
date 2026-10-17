@@ -6,3 +6,4 @@ from modules.osint.url_analysis import analyse_url
 from modules.osint.google_dorks import generateur_dorks
 from modules.osint.phone_lookup import info_telephone
 from modules.osint.quick_links import recherche_username_urls
+from modules.osint.archive_diff import archive_change_watcher

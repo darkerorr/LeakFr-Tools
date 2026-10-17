@@ -2,7 +2,9 @@ import csv
 import math
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import time
 import webbrowser
@@ -19,12 +21,75 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
-console = Console()
+class QuitterApplication(Exception):
+    """Demande explicite de sortie (commande 00 ou Ctrl-C géré par le menu)."""
+
+
+class ConsoleAdaptative(Console):
+    """Console Rich qui transforme les tableaux larges en fiches verticales.
+
+    Sur un téléphone ou dans un terminal de 40 à 60 colonnes, un tableau à
+    six colonnes devient illisible. Les tableaux avec en-têtes sont rendus
+    en blocs « champ : valeur » ; les grilles de mise en page sans en-tête
+    restent inchangées.
+    """
+
+    def print(self, *objects, **kwargs):
+        width = self.width or 80
+        if width <= 68:
+            objects = tuple(self._adapter_table(obj) if isinstance(obj, Table) else obj
+                            for obj in objects)
+        return super().print(*objects, **kwargs)
+
+    @staticmethod
+    def _texte_cellule(cellule):
+        if isinstance(cellule, Text):
+            return cellule.copy()
+        if isinstance(cellule, str):
+            try:
+                return Text.from_markup(cellule)
+            except Exception:
+                return Text(cellule)
+        return Text(str(cellule))
+
+    def _adapter_table(self, table):
+        if not table.show_header or len(table.columns) <= 1 or not table.rows:
+            return table
+        elements = []
+        if table.title:
+            elements.append(Text(str(table.title), style="bold"))
+        titre_carte = escape(str(table.title)) if table.title else "Élément"
+        total = len(table.rows)
+        colonnes = [(colonne, list(colonne.cells)) for colonne in table.columns]
+        for index, _ligne in enumerate(table.rows):
+            champs = []
+            for colonne, cellules in colonnes:
+                cellule = cellules[index] if index < len(cellules) else ""
+                entete = str(colonne.header or "").strip()
+                valeur = self._texte_cellule(cellule)
+                texte = Text()
+                if entete:
+                    texte.append(f"{entete} : ", style="bold")
+                texte.append_text(valeur)
+                champs.append(texte)
+            elements.append(Panel(Group(*champs), title=f"{titre_carte} {index + 1}/{total}",
+                                  border_style="grey42", box=box.ROUNDED))
+        if table.caption:
+            elements.append(Text(str(table.caption), style="dim"))
+        return Group(*elements)
+
+
+console = ConsoleAdaptative()
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 TIMEOUT = 8
 
 UNICODE = ("utf" in (console.encoding or "").lower()) and "--ascii" not in sys.argv
 INTERACTIF = sys.stdin.isatty() and sys.stdout.isatty() and "--simple" not in sys.argv
+MODE_TEXTE = "--text" in sys.argv or "--no-color" in sys.argv
+MODE_MOBILE = "--phone" in sys.argv
+ANIMATIONS = not MODE_TEXTE
+PAGINATION_DEFAUT = 15
+LARGEUR_MENU = "auto"
 
 BX = box.ROUNDED if UNICODE else box.ASCII
 OKC, KOC = ("✔", "✘") if UNICODE else ("OK", "KO")
@@ -41,6 +106,138 @@ C_ASTRO = "#9d8cff"
 C_GOLD = "#ffd166"
 C_PENTEST = "#ff9500"
 C_DISCORD = "#5865F2"
+
+def configurer_affichage(config=None, environnement=None):
+    """Applique les préférences d'affichage et le mode mobile.
+
+    Le mode texte désactive couleurs et animations ; il reste entièrement
+    fonctionnel. Le mode mobile réduit les menus et la pagination mais ne
+    change jamais le système d'exploitation.
+    """
+    global MODE_TEXTE, MODE_MOBILE, ANIMATIONS, PAGINATION_DEFAUT, LARGEUR_MENU
+    config = config or {}
+    plateforme = config.get("plateforme") or {}
+    apparence = config.get("apparence") or {}
+    env = str(environnement or plateforme.get("environnement") or "").casefold()
+    if not env or env == "auto":
+        try:
+            from core.environment import detecter_environnement
+            env = str(detecter_environnement().get("cle") or "")
+        except Exception:
+            env = ""
+    mobile = env in {"termux", "android"}
+    if "--phone" in sys.argv:
+        mobile = True
+    if "--text" in sys.argv or "--no-color" in sys.argv:
+        MODE_TEXTE = True
+    else:
+        MODE_TEXTE = bool(plateforme.get("mode_texte", False))
+    MODE_MOBILE = mobile
+    ANIMATIONS = (not MODE_TEXTE and not mobile
+                  and bool(apparence.get("animations", True)))
+    try:
+        PAGINATION_DEFAUT = max(5, min(50, int(plateforme.get("pagination", 15))))
+    except (TypeError, ValueError):
+        PAGINATION_DEFAUT = 15
+    LARGEUR_MENU = str(plateforme.get("largeur_sortie")
+                       or apparence.get("largeur_menu") or "auto")
+    console.no_color = MODE_TEXTE
+
+
+def clear_screen():
+    """Efface l'écran avec Rich, sans commande shell propre à un OS."""
+    try:
+        if MODE_TEXTE:
+            console.print("\n" * 2, end="")
+        else:
+            console.clear()
+    except Exception:
+        pass
+
+
+def largeur_utile():
+    largeur = console.width or 80
+    if LARGEUR_MENU == "etroit":
+        return min(largeur, 60)
+    if LARGEUR_MENU == "large":
+        return max(largeur, 100)
+    return largeur
+
+
+def est_ecran_etroit():
+    return largeur_utile() <= 68 or MODE_MOBILE
+
+
+def ask_number(label, minimum, maximum, defaut=None):
+    """Saisie numérique validée, commune à tous les menus."""
+    minimum = int(minimum)
+    maximum = int(maximum)
+    while True:
+        try:
+            if defaut is None:
+                brut = Prompt.ask(f"[bold {C_GOLD}]{label}[/]")
+            else:
+                brut = Prompt.ask(f"[bold {C_GOLD}]{label}[/]", default=str(defaut),
+                                  show_default=True)
+        except (KeyboardInterrupt, EOFError):
+            return None
+        brut = str(brut).strip()
+        if brut.isdigit() and minimum <= int(brut) <= maximum:
+            return int(brut)
+        bad(f"Entrée invalide : choisis un nombre entre {minimum} et {maximum}.")
+
+
+def ask_text(label, defaut=None):
+    return demander(label, defaut)
+
+
+def confirm_action(message, defaut=False):
+    try:
+        return bool(Confirm.ask(message, default=defaut))
+    except (KeyboardInterrupt, EOFError):
+        return False
+
+
+def show_error(message):
+    bad(message)
+
+
+def show_result_details(titre_txt, champs, couleur=C_RECON):
+    kv(titre_txt, champs, couleur)
+
+
+def render_menu(titre_menu, options, page=0, par_page=None, largeur=None, retour=True):
+    """Construit un menu numéroté réutilisable (interface et captures)."""
+    options = [str(option) for option in options]
+    par_page = int(par_page or (10 if est_ecran_etroit() else 18))
+    par_page = max(3, par_page)
+    pages = max(1, math.ceil(len(options) / par_page))
+    page = max(0, min(int(page), pages - 1))
+    debut = page * par_page
+    morceau = options[debut:debut + par_page]
+    lignes = []
+    for index, option in enumerate(morceau, start=1):
+        ligne = Text(f"[{index}] ", style=f"bold {C_GOLD}")
+        ligne.append(escape(option), style="white")
+        lignes.append(ligne)
+    if retour:
+        lignes.append(Text("[0] Retour / annuler", style="bold yellow"))
+    else:
+        lignes.append(Text("[0] Annuler", style="bold yellow"))
+    if pages > 1:
+        lignes.append(Text(f"Page {page + 1}/{pages} · [98] suivante · [99] précédente",
+                           style="dim"))
+    largeur_panneau = min(largeur or largeur_utile(), 90)
+    if MODE_TEXTE or largeur_panneau < 44:
+        entete = Text(str(titre_menu), style=f"bold {C_GOLD}")
+        return Group(entete, *lignes)
+    return Panel(Group(*lignes), title=str(titre_menu), border_style=C_GOLD, box=BX,
+                 width=largeur_panneau)
+
+
+def show_menu(titre_menu, options, selection_initiale=0):
+    return choisir_option(titre_menu, options, selection_initiale)
+
 
 # Configuration et thème (import différé)
 _CONFIG = None
@@ -133,7 +330,22 @@ def texte_arc(txt, t=0.0, decalage=0, gras=True):
         out.append(ch, style=base + arc(i + decalage, t))
     return out
 
+class _AttenteSimple:
+    def __init__(self, label):
+        self.label = label
+
+    def __enter__(self):
+        console.print(f"[dim]{escape(str(self.label))}...[/]")
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+
 def attente(label):
+    """Animation discrète ou simple ligne selon le mode texte/mobile."""
+    if MODE_TEXTE or not ANIMATIONS:
+        return _AttenteSimple(label)
     t0 = time.time()
     frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏" if UNICODE else "|/-\\"
 
@@ -148,11 +360,18 @@ def attente(label):
     return Live(get_renderable=rendu, console=console, refresh_per_second=20, transient=True)
 
 def titre(txt, couleur=C_RECON):
-    w = min(console.width or 90, 90)
+    w = max(12, min(largeur_utile(), 90))
+    texte_titre = str(txt)
+    if len(texte_titre) > w - 4:
+        texte_titre = texte_titre[:max(1, w - 7)].rstrip() + "..."
+    if MODE_TEXTE or w < 44:
+        console.print(Text(texte_titre, style=f"bold {couleur}"))
+        console.print(Text("-" * min(w, len(texte_titre) + 2), style="dim"))
+        return
     trait = texte_arc(("━" if UNICODE else "=") * w, time.time(), 0)
     console.print()
     console.print(trait)
-    console.print(Text(f" {txt} ", style=f"bold {couleur}"), justify="center")
+    console.print(Text(f" {texte_titre} ", style=f"bold {couleur}"), justify="center")
     console.print(trait)
     console.print()
 
@@ -171,83 +390,83 @@ def demander(label, defaut=None):
     return Prompt.ask(f"[bold {C_GOLD}]{label}[/]", default=defaut, show_default=False).strip()
 
 
+RETOURS = {"retour", "retour au menu principal", "quitter", "quitter le panel",
+           "terminer", "annuler", "retour au catalogue"}
+
+
 def choisir_option(titre_menu, options, selection_initiale=0):
-    """Affiche une sélection au clavier (flèches/Entrée), sans index numérique."""
-    options = list(options)
+    """Sélection entièrement numérique, utilisable au clavier tactile.
+
+    Les entrées vides répètent le menu ; ``0`` choisit l'option de retour
+    quand elle existe, sinon annule. ``98``/``99`` paginent les longues
+    listes sans imposer de flèches directionnelles.
+    """
+    options = [str(option) for option in options]
     if not options:
         return None
-    interactif = INTERACTIF and sys.stdin.isatty() and sys.stdout.isatty()
-    if interactif:
-        import os
-        import time
-        fd = sys.stdin.fileno()
-        windows = os.name == "nt"
-        if not windows:
-            import select
-            import termios
-            import tty
-            ancien_mode = termios.tcgetattr(fd)
-            tty.setcbreak(fd)
-        index = max(0, min(selection_initiale, len(options) - 1))
+    dernier = options[-1]
+    retour_label = dernier if dernier.casefold().strip() in RETOURS else None
+    normal = options[:-1] if retour_label else options
+    if not normal:
+        return retour_label
+    par_page = 10 if est_ecran_etroit() else 18
+    pages = max(1, math.ceil(len(normal) / par_page))
+    try:
+        page = max(0, min(int(selection_initiale) // par_page, pages - 1))
+    except (TypeError, ValueError):
+        page = 0
+    while True:
+        morceau = normal[page * par_page:(page + 1) * par_page]
+        console.print(render_menu(titre_menu, normal, page=page,
+                                  par_page=par_page, retour=bool(retour_label)))
+        if pages > 1:
+            console.print(f"[dim]Page {page + 1}/{pages}. 98 = suivante, 99 = précédente.[/]")
         try:
-            with Live(console=console, screen=True, auto_refresh=False) as live:
-                while True:
-                    lignes = [Text(str(titre_menu), style=f"bold {C_GOLD}"),
-                              Text("Flèches haut/bas · Entrée valider · Échap annuler", style="dim"),
-                              Text("")]
-                    for i, option in enumerate(options):
-                        prefixe = "> " if i == index else "  "
-                        style = f"bold black on {C_GOLD}" if i == index else "white"
-                        lignes.append(Text(prefixe + str(option), style=style))
-                    live.update(Panel(Group(*lignes), border_style=C_GOLD, box=BX), refresh=True)
-                    if windows:
-                        import msvcrt
-                        if not msvcrt.kbhit():
-                            time.sleep(0.05)
-                            continue
-                        touche = msvcrt.getwch()
-                        if touche in ("\x00", "\xe0"):
-                            touche = {"H": "UP", "P": "DOWN", "K": "LEFT", "M": "RIGHT"}.get(msvcrt.getwch(), "")
-                        elif touche in ("\r", "\n"):
-                            touche = "ENTER"
-                        elif touche == "\x1b":
-                            touche = "ESC"
-                    else:
-                        ready, _, _ = select.select([fd], [], [], 0.05)
-                        if not ready:
-                            continue
-                        touche = os.read(fd, 1).decode(errors="ignore")
-                        if touche == "\x1b":
-                            ready, _, _ = select.select([fd], [], [], 0.03)
-                            if ready:
-                                sequence = os.read(fd, 2).decode(errors="ignore")
-                                touche = {"[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT"}.get(sequence, "ESC")
-                            else:
-                                touche = "ESC"
-                        elif touche in ("\r", "\n"):
-                            touche = "ENTER"
-                        elif touche == "\x03":
-                            touche = "QUIT"
-                    if touche == "UP":
-                        index = (index - 1) % len(options)
-                    elif touche == "DOWN":
-                        index = (index + 1) % len(options)
-                    elif touche == "ENTER":
-                        return options[index]
-                    elif touche in ("ESC", "LEFT", "QUIT"):
-                        return None
-        finally:
-            if not windows:
-                termios.tcsetattr(fd, termios.TCSADRAIN, ancien_mode)
-
-    console.print(Panel("\n".join(str(option) for option in options),
-                        title=str(titre_menu), border_style=C_GOLD))
-    reponse = Prompt.ask("Tape le libellé voulu (ou q pour annuler)").strip()
-    if reponse.casefold() in {"q", "quit", "annuler"}:
-        return None
-    return next((option for option in options if str(option).casefold() == reponse.casefold()), None)
+            index_defaut = max(0, min(int(selection_initiale), len(normal) - 1))
+        except (TypeError, ValueError):
+            index_defaut = 0
+        defaut_num = index_defaut - page * par_page + 1
+        if not 1 <= defaut_num <= len(morceau):
+            defaut_num = 1 if morceau else 0
+        try:
+            brut = Prompt.ask(f"[bold {C_GOLD}]Choisis une option[/]",
+                              default=str(defaut_num), show_default=True).strip()
+        except (KeyboardInterrupt, EOFError):
+            return None
+        if brut == "00":
+            raise QuitterApplication()
+        if brut == "":
+            brut = "0"
+        if not brut.isdigit():
+            bad(f"Entrée invalide : saisis un numéro entre 1 et {len(morceau)}, "
+                "0 pour retour/annuler, 98/99 pour paginer.")
+            continue
+        nombre = int(brut)
+        if nombre == 0:
+            return retour_label
+        if nombre == 98:
+            page = (page + 1) % pages
+            continue
+        if nombre == 99:
+            page = (page - 1) % pages
+            continue
+        if 1 <= nombre <= len(morceau):
+            return morceau[nombre - 1]
+        bad(f"Numéro hors limites (1-{len(morceau)}).")
+        if pages > 1:
+            bad("98 = page suivante, 99 = page précédente, 0 = retour.")
 
 def kv(titre_txt, lignes, couleur=C_RECON):
+    lignes = list(lignes)
+    if est_ecran_etroit():
+        elements = []
+        for k, v in lignes:
+            ligne = Text(f"{k} : ", style=f"bold {couleur}")
+            ligne.append_text(v if isinstance(v, Text) else Text(str(v)))
+            elements.append(ligne)
+        console.print(Panel(Group(*elements), title=str(titre_txt), box=BX,
+                            border_style=couleur, width=min(largeur_utile(), 90)))
+        return
     t = Table(title=titre_txt, box=BX, border_style=couleur, title_style=f"bold {couleur}", show_header=False, padding=(0, 1))
     t.add_column(style=f"bold {couleur}", no_wrap=True)
     t.add_column()
@@ -264,30 +483,52 @@ def pause():
 
 def barre():
     return Progress(SpinnerColumn(style="cyan"), TextColumn("[bold]{task.description}"),
-                    BarColumn(), TaskProgressColumn(), console=console, transient=True)
+                    BarColumn(), TaskProgressColumn(), console=console, transient=True,
+                    disable=MODE_TEXTE or not ANIMATIONS)
 
-def afficher_pagine(titre_txt, colonnes, rows, rendu, lien=None, par_page=15, fichier="export.csv", couleur=C_RECON, caption=""):
+def afficher_pagine(titre_txt, colonnes, rows, rendu, lien=None, par_page=None, fichier="export.csv", couleur=C_RECON, caption=""):
     vue = rows[:]
     filtre = ""
     page = 0
     message = ""
+    par_page = int(par_page or PAGINATION_DEFAUT)
+    par_page = max(1, par_page)
     while True:
         pages = max(1, math.ceil(len(vue) / par_page))
         page = min(max(page, 0), pages - 1)
         debut = page * par_page
         morceau = vue[debut:debut + par_page]
 
-        console.clear()
-        t = Table(title=titre_txt, title_style=f"bold {couleur}", box=BX, border_style=couleur,
-                  header_style=f"bold {couleur}", caption=caption, caption_style="dim")
-        t.add_column("#", justify="right", style=f"bold {C_GOLD}")
-        for c in colonnes:
-            t.add_column(c)
-        for i, row in enumerate(morceau):
-            t.add_row(str(debut + i + 1), *rendu(row))
-        if not morceau:
-            t.add_row("-", *["[dim]aucun résultat[/]"] + [""] * (len(colonnes) - 1))
-        console.print(t)
+        clear_screen()
+        if est_ecran_etroit() and len(colonnes) > 2:
+            elements = [Text(str(titre_txt), style=f"bold {couleur}")]
+            for i, row in enumerate(morceau):
+                valeurs = rendu(row)
+                champs = []
+                for libelle, valeur in zip(colonnes, valeurs):
+                    ligne = Text(f"{libelle} : ", style=f"bold {couleur}")
+                    if isinstance(valeur, Text):
+                        ligne.append_text(valeur)
+                    else:
+                        ligne.append(str(valeur))
+                    champs.append(ligne)
+                elements.append(Panel(Group(*champs),
+                                      title=f"Résultat {debut + i + 1}/{len(vue)}",
+                                      border_style="grey42", box=BX))
+            if not morceau:
+                elements.append(Text("[dim]Aucun résultat.[/]"))
+            console.print(Group(*elements))
+        else:
+            t = Table(title=titre_txt, title_style=f"bold {couleur}", box=BX, border_style=couleur,
+                      header_style=f"bold {couleur}", caption=caption, caption_style="dim")
+            t.add_column("#", justify="right", style=f"bold {C_GOLD}")
+            for c in colonnes:
+                t.add_column(c)
+            for i, row in enumerate(morceau):
+                t.add_row(str(debut + i + 1), *rendu(row))
+            if not morceau:
+                t.add_row("-", *["[dim]aucun résultat[/]"] + [""] * (len(colonnes) - 1))
+            console.print(t)
 
         etat = f"Page [bold]{page + 1}[/]/[bold]{pages}[/]   |   [bold]{len(vue)}[/] résultat(s)"
         if filtre:
@@ -298,7 +539,11 @@ def afficher_pagine(titre_txt, colonnes, rows, rendu, lien=None, par_page=15, fi
         if lien:
             aide += f"   [bold {couleur}]o N[/] ouvrir"
         aide += f"   [bold {couleur}]e[/] export CSV   [bold {couleur}]q[/] quitter"
-        console.print(Panel(etat + "\n" + aide, border_style="grey50", box=BX))
+        if est_ecran_etroit():
+            console.print(Panel(etat + "\n" + "\n".join(part.strip() for part in aide.split("   ")),
+                                border_style="grey50", box=BX))
+        else:
+            console.print(Panel(etat + "\n" + aide, border_style="grey50", box=BX))
         if message:
             console.print(message)
             message = ""
@@ -326,7 +571,7 @@ def afficher_pagine(titre_txt, colonnes, rows, rendu, lien=None, par_page=15, fi
             m = re.match(r"o\s*(\d+)", low)
             if m and 1 <= int(m.group(1)) <= len(vue):
                 url = lien(vue[int(m.group(1)) - 1])
-                webbrowser.open(url)
+                ouvrir_url(url)
                 message = f"[green]Ouverture :[/] {escape(url)}"
             else:
                 message = "[red]Numéro invalide. Exemple : o 12[/]"
@@ -342,6 +587,32 @@ def afficher_pagine(titre_txt, colonnes, rows, rendu, lien=None, par_page=15, fi
                 message = f"[red]Export impossible : {escape(str(e))}[/]"
         else:
             message = "[red]Commande inconnue.[/]"
+
+def ouvrir_url(url):
+    """Ouvre une URL avec le navigateur du système si possible.
+
+    Sur Android/Termux, le module webbrowser peut échouer : la commande
+    `termux-open-url` est alors utilisée quand elle existe. Sinon l'URL est
+    affichée pour permettre une copie manuelle ; aucun échec silencieux.
+    """
+    try:
+        if webbrowser.open(url):
+            return True
+    except Exception:
+        pass
+    for commande in ("termux-open-url", "xdg-open", "open"):
+        chemin = shutil.which(commande)
+        if not chemin:
+            continue
+        try:
+            subprocess.run([chemin, url], timeout=10, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except (OSError, subprocess.SubprocessError):
+            continue
+    console.print(f"[yellow]Ouverture automatique impossible. URL :[/] {escape(str(url))}")
+    return False
+
 
 def resoudre(cible):
     try:

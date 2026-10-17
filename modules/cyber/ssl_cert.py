@@ -3,6 +3,20 @@ import socket
 from datetime import datetime, timezone
 from core.common import demander, titre, bad, kv, attente, nettoyer_cible, C_CYBER, OKC, KOC, TIMEOUT
 
+
+def recuperer_certificat(hote, port=443, timeout=None):
+    """Ouvre une connexion TLS verifiee et retourne certificat, DER, version et cipher."""
+    ctx = ssl.create_default_context()
+    with socket.create_connection((hote, port), timeout=timeout or TIMEOUT) as sock:
+        with ctx.wrap_socket(sock, server_hostname=hote) as ssock:
+            return {
+                "cert": ssock.getpeercert(),
+                "der": ssock.getpeercert(binary_form=True),
+                "version": ssock.version(),
+                "cipher": ssock.cipher(),
+            }
+
+
 def certificat_ssl():
     hote = nettoyer_cible(demander("Domaine (ex: google.com)"))
     if not hote:
@@ -11,12 +25,10 @@ def certificat_ssl():
     titre(f"CERTIFICAT SSL/TLS : {hote}", C_CYBER)
     try:
         with attente("Handshake TLS"):
-            ctx = ssl.create_default_context()
-            with socket.create_connection((hote, 443), timeout=TIMEOUT) as sock:
-                with ctx.wrap_socket(sock, server_hostname=hote) as ssock:
-                    cert = ssock.getpeercert()
-                    version = ssock.version()
-                    cipher = ssock.cipher()
+            donnees = recuperer_certificat(hote)
+            cert = donnees["cert"]
+            version = donnees["version"]
+            cipher = donnees["cipher"]
     except Exception as e:
         bad(f"Erreur : {e}")
         return

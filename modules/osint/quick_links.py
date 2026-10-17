@@ -1,8 +1,7 @@
 from urllib.parse import quote
-import webbrowser
 from rich.table import Table
 from rich.markup import escape
-from core.common import console, demander, choisir_option, titre, BX, C_OSINT, C_GOLD
+from core.common import console, demander, choisir_option, titre, ouvrir_url, BX, C_OSINT, C_GOLD
 
 def recherche_username_urls():
     titre("LIENS OSINT RAPIDES", C_OSINT)
@@ -35,4 +34,4 @@ def recherche_username_urls():
     choix = choisir_option("OUVRIR UN LIEN", [nom for nom, _ in liens] + ["Terminer"])
     if choix not in (None, "Terminer"):
         url = next(url for nom, url in liens if nom == choix)
-        webbrowser.open(url)
+        ouvrir_url(url)

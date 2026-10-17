@@ -17,6 +17,8 @@ Contrôles HTTP/TLS et inspection locale de données fournies par l’utilisateu
 | Latence TCP | Mesure une connexion TCP et éventuellement une bannière légère. | ![Latence](../../docs/screenshots/modules/cyber/latence-tcp.svg) |
 | Test CORS | Observe les en-têtes CORS renvoyés par une cible. | ![CORS](../../docs/screenshots/modules/cyber/test-cors.svg) |
 | Webhook Lab | Envoie un payload JSON synthétique vers une URL de test et affiche statut, durée et erreurs. Aucune donnée de la machine n'est collectée. | ![Webhook Lab](../../docs/screenshots/modules/cyber/webhook-lab.svg) |
+| API Contract Lab | Analyse un contrat OpenAPI JSON hors ligne : routes, incohérences et fixtures valides/invalides. Aucune requête réseau. | ![API Contract Lab](../../docs/screenshots/modules/cyber/api-contract-lab.svg) |
+| TLS Policy Diff | Enregistre des instantanés TLS et compare deux captures : empreinte, série, émetteur, SAN, validité et cipher. | ![TLS Policy Diff](../../docs/screenshots/modules/cyber/tls-policy-diff.svg) |
 
 ## Utilisation
 

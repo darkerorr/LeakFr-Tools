@@ -1,70 +1,68 @@
+"""Fiche d'un Bot Discord a partir de son token, sans journaliser le secret."""
 from datetime import datetime, timezone
-import requests
-from core.common import DISCORD_EPOCH, demander, titre, ok, bad, kv, attente, C_DISCORD
+
+from rich.prompt import Prompt
+
+from core.common import C_DISCORD, DISCORD_EPOCH, bad, kv, ok, titre, warn
+from modules.discord.discord_api import DiscordAPI, DiscordAPIError, DiscordAuthError
+
 
 def bot_token_info():
     titre("DISCORD BOT TOKEN INFO & CHECKER", C_DISCORD)
-    token = demander("Token du Bot Discord")
-    if not token or "." not in token:
-        bad("Format de token Bot invalide (doit contenir des points).")
+    token = Prompt.ask("[bold]Token du Bot Discord[/]", password=True).strip()
+    if not token:
+        bad("Token absent.")
         return
 
-    headers = {
-        "Authorization": f"Bot {token.strip()}",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-
+    api = DiscordAPI(token)
     try:
-        with attente("Interrogation de l'API Discord Bot"):
-            r = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=8)
-    except Exception as e:
-        bad(f"Erreur de connexion : {e}")
-        return
+        try:
+            data = api.me()
+        except DiscordAuthError:
+            bad("Token Bot invalide ou revoque (HTTP 401).")
+            return
+        except DiscordAPIError as exc:
+            bad(f"Verification impossible : {exc}")
+            return
 
-    if r.status_code == 401:
-        bad("Token Bot invalide ou révoqué (HTTP 401 Unauthorized).")
-        return
-    elif r.status_code != 200:
-        bad(f"Réponse inattendue de Discord : HTTP {r.status_code} ({r.text})")
-        return
+        bot_id = str(data.get("id", ""))
+        date_crea = "?"
+        if bot_id.isdigit():
+            dt = datetime.fromtimestamp(((int(bot_id) >> 22) + DISCORD_EPOCH) / 1000.0,
+                                       tz=timezone.utc)
+            date_crea = dt.strftime("%d/%m/%Y %H:%M:%S UTC")
 
-    data = r.json()
-    bot_id = data.get("id", "?")
-    date_crea = "?"
-    if bot_id.isdigit():
-        ts_ms = (int(bot_id) >> 22) + DISCORD_EPOCH
-        dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
-        date_crea = dt.strftime("%d/%m/%Y %H:%M:%S UTC")
+        username = data.get("username", "?")
+        discrim = str(data.get("discriminator") or "0")
+        tag = f"{username}#{discrim}" if discrim != "0" else username
 
-    username = data.get("username", "?")
-    discrim = data.get("discriminator", "0")
-    tag = f"{username}#{discrim}" if discrim != "0" else username
-    mfa = "Activée" if data.get("mfa_enabled") else "Désactivée"
-    verified = "Oui" if data.get("verified") else "Non"
+        lignes = [
+            ("Nom du Bot", tag),
+            ("ID Bot", bot_id),
+            ("Creation du Bot", date_crea),
+            ("Bot verifie", "Oui" if data.get("verified") else "Non"),
+            ("2FA / MFA", "Activee" if data.get("mfa_enabled") else "Desactivee"),
+            ("Drapeaux publics", str(data.get("public_flags", 0))),
+        ]
 
-    lignes = [
-        ("Nom du Bot", tag),
-        ("ID Bot", bot_id),
-        ("Création du Bot", date_crea),
-        ("Bot vérifié", verified),
-        ("2FA / MFA", mfa),
-        ("Drapeaux publics (Flags)", str(data.get("public_flags", 0))),
-        ("Lien d'invitation Admin", f"https://discord.com/oauth2/authorize?client_id={bot_id}&scope=bot&permissions=8"),
-    ]
-
-    # Nombre de serveurs où se trouve le bot
-    try:
-        guilds_res = requests.get("https://discord.com/api/v10/users/@me/guilds", headers=headers, timeout=6)
-        if guilds_res.status_code == 200:
-            guilds = guilds_res.json()
+        try:
+            guilds = api.my_guilds()
+        except DiscordAPIError as exc:
+            lignes.append(("Serveurs rejoints", f"indisponible ({exc})"))
+        else:
             lignes.append(("Serveurs rejoints", f"{len(guilds)} serveur(s)"))
             if guilds:
-                noms_guilds = ", ".join([g.get("name", "?") for g in guilds[:5]])
+                noms = ", ".join(str(guild.get("name", "?")) for guild in guilds[:5])
                 if len(guilds) > 5:
-                    noms_guilds += f" (+{len(guilds)-5} autres)"
-                lignes.append(("Exemples de serveurs", noms_guilds))
-    except Exception:
-        pass
+                    noms += f" (+{len(guilds) - 5} autres)"
+                lignes.append(("Exemples de serveurs", noms))
 
-    kv("Fiche Bot Discord", lignes, C_DISCORD)
-    ok("Token Bot valide et fonctionnel !")
+        lignes.append(("Lien d'invitation (Administrateur)",
+                       f"https://discord.com/oauth2/authorize?client_id={bot_id}"
+                       "&scope=bot&permissions=8"))
+        kv("Fiche Bot Discord", lignes, C_DISCORD)
+        ok("Token Bot valide.")
+        if int(data.get("public_flags", 0)) & (1 << 16):
+            warn("Bot verifie par Discord ; verifiez tout de meme ses permissions.")
+    finally:
+        api.close()

@@ -9,3 +9,5 @@ from modules.cyber.cve_search import recherche_cve
 from modules.cyber.tcp_latency import latence_tcp
 from modules.cyber.cors_check import cors_check
 from modules.cyber.webhook_lab import webhook_lab
+from modules.cyber.api_contract import api_contract_lab
+from modules.cyber.tls_policy import tls_policy_diff

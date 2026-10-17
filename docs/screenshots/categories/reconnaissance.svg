@@ -19,98 +19,98 @@
         font-weight: 700;
     }
 
-    .terminal-79017037-matrix {
+    .terminal-557225971-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-79017037-title {
+    .terminal-557225971-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-79017037-r1 { fill: #c5c8c6;font-style: italic; }
-.terminal-79017037-r2 { fill: #c5c8c6 }
-.terminal-79017037-r3 { fill: #36d1ff }
-.terminal-79017037-r4 { fill: #c5c8c6;font-weight: bold }
+    .terminal-557225971-r1 { fill: #c5c8c6;font-style: italic; }
+.terminal-557225971-r2 { fill: #c5c8c6 }
+.terminal-557225971-r3 { fill: #36d1ff }
+.terminal-557225971-r4 { fill: #c5c8c6;font-weight: bold }
     </style>
 
     <defs>
-    <clipPath id="terminal-79017037-clip-terminal">
+    <clipPath id="terminal-557225971-clip-terminal">
       <rect x="0" y="0" width="1511.8" height="365.0" />
     </clipPath>
-    <clipPath id="terminal-79017037-line-0">
+    <clipPath id="terminal-557225971-line-0">
     <rect x="0" y="1.5" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-1">
+<clipPath id="terminal-557225971-line-1">
     <rect x="0" y="25.9" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-2">
+<clipPath id="terminal-557225971-line-2">
     <rect x="0" y="50.3" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-3">
+<clipPath id="terminal-557225971-line-3">
     <rect x="0" y="74.7" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-4">
+<clipPath id="terminal-557225971-line-4">
     <rect x="0" y="99.1" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-5">
+<clipPath id="terminal-557225971-line-5">
     <rect x="0" y="123.5" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-6">
+<clipPath id="terminal-557225971-line-6">
     <rect x="0" y="147.9" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-7">
+<clipPath id="terminal-557225971-line-7">
     <rect x="0" y="172.3" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-8">
+<clipPath id="terminal-557225971-line-8">
     <rect x="0" y="196.7" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-9">
+<clipPath id="terminal-557225971-line-9">
     <rect x="0" y="221.1" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-10">
+<clipPath id="terminal-557225971-line-10">
     <rect x="0" y="245.5" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-11">
+<clipPath id="terminal-557225971-line-11">
     <rect x="0" y="269.9" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-12">
+<clipPath id="terminal-557225971-line-12">
     <rect x="0" y="294.3" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-79017037-line-13">
+<clipPath id="terminal-557225971-line-13">
     <rect x="0" y="318.7" width="1512.8" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="414" rx="8"/><text class="terminal-79017037-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;RECONNAISSANCE</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="414" rx="8"/><text class="terminal-557225971-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;RECONNAISSANCE</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
 
-    <g transform="translate(9, 41)" clip-path="url(#terminal-79017037-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-557225971-clip-terminal)">
 
-    <g class="terminal-79017037-matrix">
-    <text class="terminal-79017037-r1" x="0" y="20" textLength="658.8" clip-path="url(#terminal-79017037-line-0)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;LeakFr-Tools&#160;—&#160;RECONNAISSANCE&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-79017037-line-0)">
-</text><text class="terminal-79017037-r3" x="0" y="44.4" textLength="658.8" clip-path="url(#terminal-79017037-line-1)">┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓</text><text class="terminal-79017037-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-79017037-line-1)">
-</text><text class="terminal-79017037-r3" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-79017037-line-2)">┃</text><text class="terminal-79017037-r4" x="24.4" y="68.8" textLength="231.8" clip-path="url(#terminal-79017037-line-2)">Outil&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="68.8" textLength="12.2" clip-path="url(#terminal-79017037-line-2)">┃</text><text class="terminal-79017037-r4" x="292.8" y="68.8" textLength="341.6" clip-path="url(#terminal-79017037-line-2)">Description&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="68.8" textLength="12.2" clip-path="url(#terminal-79017037-line-2)">┃</text><text class="terminal-79017037-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-79017037-line-2)">
-</text><text class="terminal-79017037-r3" x="0" y="93.2" textLength="658.8" clip-path="url(#terminal-79017037-line-3)">┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩</text><text class="terminal-79017037-r2" x="1512.8" y="93.2" textLength="12.2" clip-path="url(#terminal-79017037-line-3)">
-</text><text class="terminal-79017037-r3" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-79017037-line-4)">│</text><text class="terminal-79017037-r4" x="24.4" y="117.6" textLength="231.8" clip-path="url(#terminal-79017037-line-4)">Enregistrements&#160;DNS</text><text class="terminal-79017037-r3" x="268.4" y="117.6" textLength="12.2" clip-path="url(#terminal-79017037-line-4)">│</text><text class="terminal-79017037-r2" x="292.8" y="117.6" textLength="341.6" clip-path="url(#terminal-79017037-line-4)">A,&#160;AAAA,&#160;MX,&#160;NS,&#160;TXT&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="117.6" textLength="12.2" clip-path="url(#terminal-79017037-line-4)">│</text><text class="terminal-79017037-r2" x="1512.8" y="117.6" textLength="12.2" clip-path="url(#terminal-79017037-line-4)">
-</text><text class="terminal-79017037-r3" x="0" y="142" textLength="12.2" clip-path="url(#terminal-79017037-line-5)">│</text><text class="terminal-79017037-r4" x="24.4" y="142" textLength="231.8" clip-path="url(#terminal-79017037-line-5)">Reverse&#160;DNS&#160;(PTR)&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="142" textLength="12.2" clip-path="url(#terminal-79017037-line-5)">│</text><text class="terminal-79017037-r2" x="292.8" y="142" textLength="341.6" clip-path="url(#terminal-79017037-line-5)">IP&#160;-&gt;&#160;nom&#160;d&#x27;hote&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="142" textLength="12.2" clip-path="url(#terminal-79017037-line-5)">│</text><text class="terminal-79017037-r2" x="1512.8" y="142" textLength="12.2" clip-path="url(#terminal-79017037-line-5)">
-</text><text class="terminal-79017037-r3" x="0" y="166.4" textLength="12.2" clip-path="url(#terminal-79017037-line-6)">│</text><text class="terminal-79017037-r4" x="24.4" y="166.4" textLength="231.8" clip-path="url(#terminal-79017037-line-6)">Geolocalisation&#160;IP&#160;</text><text class="terminal-79017037-r3" x="268.4" y="166.4" textLength="12.2" clip-path="url(#terminal-79017037-line-6)">│</text><text class="terminal-79017037-r2" x="292.8" y="166.4" textLength="341.6" clip-path="url(#terminal-79017037-line-6)">Pays,&#160;ville,&#160;fournisseur&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="166.4" textLength="12.2" clip-path="url(#terminal-79017037-line-6)">│</text><text class="terminal-79017037-r2" x="1512.8" y="166.4" textLength="12.2" clip-path="url(#terminal-79017037-line-6)">
-</text><text class="terminal-79017037-r3" x="0" y="190.8" textLength="12.2" clip-path="url(#terminal-79017037-line-7)">│</text><text class="terminal-79017037-r4" x="24.4" y="190.8" textLength="231.8" clip-path="url(#terminal-79017037-line-7)">Info&#160;ASN&#160;/&#160;reseau&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="190.8" textLength="12.2" clip-path="url(#terminal-79017037-line-7)">│</text><text class="terminal-79017037-r2" x="292.8" y="190.8" textLength="341.6" clip-path="url(#terminal-79017037-line-7)">AS,&#160;hosting,&#160;proxy,&#160;PTR&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="190.8" textLength="12.2" clip-path="url(#terminal-79017037-line-7)">│</text><text class="terminal-79017037-r2" x="1512.8" y="190.8" textLength="12.2" clip-path="url(#terminal-79017037-line-7)">
-</text><text class="terminal-79017037-r3" x="0" y="215.2" textLength="12.2" clip-path="url(#terminal-79017037-line-8)">│</text><text class="terminal-79017037-r4" x="24.4" y="215.2" textLength="231.8" clip-path="url(#terminal-79017037-line-8)">WHOIS&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="215.2" textLength="12.2" clip-path="url(#terminal-79017037-line-8)">│</text><text class="terminal-79017037-r2" x="292.8" y="215.2" textLength="341.6" clip-path="url(#terminal-79017037-line-8)">Infos&#160;d&#x27;un&#160;domaine&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="215.2" textLength="12.2" clip-path="url(#terminal-79017037-line-8)">│</text><text class="terminal-79017037-r2" x="1512.8" y="215.2" textLength="12.2" clip-path="url(#terminal-79017037-line-8)">
-</text><text class="terminal-79017037-r3" x="0" y="239.6" textLength="12.2" clip-path="url(#terminal-79017037-line-9)">│</text><text class="terminal-79017037-r4" x="24.4" y="239.6" textLength="231.8" clip-path="url(#terminal-79017037-line-9)">Sous-domaines&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="239.6" textLength="12.2" clip-path="url(#terminal-79017037-line-9)">│</text><text class="terminal-79017037-r2" x="292.8" y="239.6" textLength="341.6" clip-path="url(#terminal-79017037-line-9)">Via&#160;les&#160;certificats&#160;crt.sh&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="239.6" textLength="12.2" clip-path="url(#terminal-79017037-line-9)">│</text><text class="terminal-79017037-r2" x="1512.8" y="239.6" textLength="12.2" clip-path="url(#terminal-79017037-line-9)">
-</text><text class="terminal-79017037-r3" x="0" y="264" textLength="12.2" clip-path="url(#terminal-79017037-line-10)">│</text><text class="terminal-79017037-r4" x="24.4" y="264" textLength="231.8" clip-path="url(#terminal-79017037-line-10)">SPF&#160;/&#160;DMARC&#160;/&#160;DKIM&#160;</text><text class="terminal-79017037-r3" x="268.4" y="264" textLength="12.2" clip-path="url(#terminal-79017037-line-10)">│</text><text class="terminal-79017037-r2" x="292.8" y="264" textLength="341.6" clip-path="url(#terminal-79017037-line-10)">Securite&#160;email&#160;du&#160;domaine&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="264" textLength="12.2" clip-path="url(#terminal-79017037-line-10)">│</text><text class="terminal-79017037-r2" x="1512.8" y="264" textLength="12.2" clip-path="url(#terminal-79017037-line-10)">
-</text><text class="terminal-79017037-r3" x="0" y="288.4" textLength="12.2" clip-path="url(#terminal-79017037-line-11)">│</text><text class="terminal-79017037-r4" x="24.4" y="288.4" textLength="231.8" clip-path="url(#terminal-79017037-line-11)">Detection&#160;techno&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="288.4" textLength="12.2" clip-path="url(#terminal-79017037-line-11)">│</text><text class="terminal-79017037-r2" x="292.8" y="288.4" textLength="341.6" clip-path="url(#terminal-79017037-line-11)">CMS,&#160;frameworks,&#160;serveur&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="288.4" textLength="12.2" clip-path="url(#terminal-79017037-line-11)">│</text><text class="terminal-79017037-r2" x="1512.8" y="288.4" textLength="12.2" clip-path="url(#terminal-79017037-line-11)">
-</text><text class="terminal-79017037-r3" x="0" y="312.8" textLength="12.2" clip-path="url(#terminal-79017037-line-12)">│</text><text class="terminal-79017037-r4" x="24.4" y="312.8" textLength="231.8" clip-path="url(#terminal-79017037-line-12)">Sonde&#160;HTTP&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="312.8" textLength="12.2" clip-path="url(#terminal-79017037-line-12)">│</text><text class="terminal-79017037-r2" x="292.8" y="312.8" textLength="341.6" clip-path="url(#terminal-79017037-line-12)">Statut,&#160;temps,&#160;titre,&#160;taille</text><text class="terminal-79017037-r3" x="646.6" y="312.8" textLength="12.2" clip-path="url(#terminal-79017037-line-12)">│</text><text class="terminal-79017037-r2" x="1512.8" y="312.8" textLength="12.2" clip-path="url(#terminal-79017037-line-12)">
-</text><text class="terminal-79017037-r3" x="0" y="337.2" textLength="12.2" clip-path="url(#terminal-79017037-line-13)">│</text><text class="terminal-79017037-r4" x="24.4" y="337.2" textLength="231.8" clip-path="url(#terminal-79017037-line-13)">Lookup&#160;MAC&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="268.4" y="337.2" textLength="12.2" clip-path="url(#terminal-79017037-line-13)">│</text><text class="terminal-79017037-r2" x="292.8" y="337.2" textLength="341.6" clip-path="url(#terminal-79017037-line-13)">Fabricant&#160;via&#160;OUI&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-79017037-r3" x="646.6" y="337.2" textLength="12.2" clip-path="url(#terminal-79017037-line-13)">│</text><text class="terminal-79017037-r2" x="1512.8" y="337.2" textLength="12.2" clip-path="url(#terminal-79017037-line-13)">
-</text><text class="terminal-79017037-r3" x="0" y="361.6" textLength="658.8" clip-path="url(#terminal-79017037-line-14)">└─────────────────────┴──────────────────────────────┘</text><text class="terminal-79017037-r2" x="1512.8" y="361.6" textLength="12.2" clip-path="url(#terminal-79017037-line-14)">
+    <g class="terminal-557225971-matrix">
+    <text class="terminal-557225971-r1" x="0" y="20" textLength="658.8" clip-path="url(#terminal-557225971-line-0)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;LeakFr-Tools&#160;—&#160;RECONNAISSANCE&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-557225971-line-0)">
+</text><text class="terminal-557225971-r3" x="0" y="44.4" textLength="658.8" clip-path="url(#terminal-557225971-line-1)">┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓</text><text class="terminal-557225971-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-557225971-line-1)">
+</text><text class="terminal-557225971-r3" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-557225971-line-2)">┃</text><text class="terminal-557225971-r4" x="24.4" y="68.8" textLength="231.8" clip-path="url(#terminal-557225971-line-2)">Outil&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="68.8" textLength="12.2" clip-path="url(#terminal-557225971-line-2)">┃</text><text class="terminal-557225971-r4" x="292.8" y="68.8" textLength="341.6" clip-path="url(#terminal-557225971-line-2)">Description&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="68.8" textLength="12.2" clip-path="url(#terminal-557225971-line-2)">┃</text><text class="terminal-557225971-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-557225971-line-2)">
+</text><text class="terminal-557225971-r3" x="0" y="93.2" textLength="658.8" clip-path="url(#terminal-557225971-line-3)">┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩</text><text class="terminal-557225971-r2" x="1512.8" y="93.2" textLength="12.2" clip-path="url(#terminal-557225971-line-3)">
+</text><text class="terminal-557225971-r3" x="0" y="117.6" textLength="12.2" clip-path="url(#terminal-557225971-line-4)">│</text><text class="terminal-557225971-r4" x="24.4" y="117.6" textLength="231.8" clip-path="url(#terminal-557225971-line-4)">Enregistrements&#160;DNS</text><text class="terminal-557225971-r3" x="268.4" y="117.6" textLength="12.2" clip-path="url(#terminal-557225971-line-4)">│</text><text class="terminal-557225971-r2" x="292.8" y="117.6" textLength="341.6" clip-path="url(#terminal-557225971-line-4)">A,&#160;AAAA,&#160;MX,&#160;NS,&#160;TXT&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="117.6" textLength="12.2" clip-path="url(#terminal-557225971-line-4)">│</text><text class="terminal-557225971-r2" x="1512.8" y="117.6" textLength="12.2" clip-path="url(#terminal-557225971-line-4)">
+</text><text class="terminal-557225971-r3" x="0" y="142" textLength="12.2" clip-path="url(#terminal-557225971-line-5)">│</text><text class="terminal-557225971-r4" x="24.4" y="142" textLength="231.8" clip-path="url(#terminal-557225971-line-5)">Reverse&#160;DNS&#160;(PTR)&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="142" textLength="12.2" clip-path="url(#terminal-557225971-line-5)">│</text><text class="terminal-557225971-r2" x="292.8" y="142" textLength="341.6" clip-path="url(#terminal-557225971-line-5)">IP&#160;-&gt;&#160;nom&#160;d&#x27;hote&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="142" textLength="12.2" clip-path="url(#terminal-557225971-line-5)">│</text><text class="terminal-557225971-r2" x="1512.8" y="142" textLength="12.2" clip-path="url(#terminal-557225971-line-5)">
+</text><text class="terminal-557225971-r3" x="0" y="166.4" textLength="12.2" clip-path="url(#terminal-557225971-line-6)">│</text><text class="terminal-557225971-r4" x="24.4" y="166.4" textLength="231.8" clip-path="url(#terminal-557225971-line-6)">Geolocalisation&#160;IP&#160;</text><text class="terminal-557225971-r3" x="268.4" y="166.4" textLength="12.2" clip-path="url(#terminal-557225971-line-6)">│</text><text class="terminal-557225971-r2" x="292.8" y="166.4" textLength="341.6" clip-path="url(#terminal-557225971-line-6)">Pays,&#160;ville,&#160;fournisseur&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="166.4" textLength="12.2" clip-path="url(#terminal-557225971-line-6)">│</text><text class="terminal-557225971-r2" x="1512.8" y="166.4" textLength="12.2" clip-path="url(#terminal-557225971-line-6)">
+</text><text class="terminal-557225971-r3" x="0" y="190.8" textLength="12.2" clip-path="url(#terminal-557225971-line-7)">│</text><text class="terminal-557225971-r4" x="24.4" y="190.8" textLength="231.8" clip-path="url(#terminal-557225971-line-7)">Info&#160;ASN&#160;/&#160;reseau&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="190.8" textLength="12.2" clip-path="url(#terminal-557225971-line-7)">│</text><text class="terminal-557225971-r2" x="292.8" y="190.8" textLength="341.6" clip-path="url(#terminal-557225971-line-7)">AS,&#160;hosting,&#160;proxy,&#160;PTR&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="190.8" textLength="12.2" clip-path="url(#terminal-557225971-line-7)">│</text><text class="terminal-557225971-r2" x="1512.8" y="190.8" textLength="12.2" clip-path="url(#terminal-557225971-line-7)">
+</text><text class="terminal-557225971-r3" x="0" y="215.2" textLength="12.2" clip-path="url(#terminal-557225971-line-8)">│</text><text class="terminal-557225971-r4" x="24.4" y="215.2" textLength="231.8" clip-path="url(#terminal-557225971-line-8)">WHOIS&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="215.2" textLength="12.2" clip-path="url(#terminal-557225971-line-8)">│</text><text class="terminal-557225971-r2" x="292.8" y="215.2" textLength="341.6" clip-path="url(#terminal-557225971-line-8)">Infos&#160;d&#x27;un&#160;domaine&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="215.2" textLength="12.2" clip-path="url(#terminal-557225971-line-8)">│</text><text class="terminal-557225971-r2" x="1512.8" y="215.2" textLength="12.2" clip-path="url(#terminal-557225971-line-8)">
+</text><text class="terminal-557225971-r3" x="0" y="239.6" textLength="12.2" clip-path="url(#terminal-557225971-line-9)">│</text><text class="terminal-557225971-r4" x="24.4" y="239.6" textLength="231.8" clip-path="url(#terminal-557225971-line-9)">Sous-domaines&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="239.6" textLength="12.2" clip-path="url(#terminal-557225971-line-9)">│</text><text class="terminal-557225971-r2" x="292.8" y="239.6" textLength="341.6" clip-path="url(#terminal-557225971-line-9)">Via&#160;les&#160;certificats&#160;crt.sh&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="239.6" textLength="12.2" clip-path="url(#terminal-557225971-line-9)">│</text><text class="terminal-557225971-r2" x="1512.8" y="239.6" textLength="12.2" clip-path="url(#terminal-557225971-line-9)">
+</text><text class="terminal-557225971-r3" x="0" y="264" textLength="12.2" clip-path="url(#terminal-557225971-line-10)">│</text><text class="terminal-557225971-r4" x="24.4" y="264" textLength="231.8" clip-path="url(#terminal-557225971-line-10)">SPF&#160;/&#160;DMARC&#160;/&#160;DKIM&#160;</text><text class="terminal-557225971-r3" x="268.4" y="264" textLength="12.2" clip-path="url(#terminal-557225971-line-10)">│</text><text class="terminal-557225971-r2" x="292.8" y="264" textLength="341.6" clip-path="url(#terminal-557225971-line-10)">Securite&#160;email&#160;du&#160;domaine&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="264" textLength="12.2" clip-path="url(#terminal-557225971-line-10)">│</text><text class="terminal-557225971-r2" x="1512.8" y="264" textLength="12.2" clip-path="url(#terminal-557225971-line-10)">
+</text><text class="terminal-557225971-r3" x="0" y="288.4" textLength="12.2" clip-path="url(#terminal-557225971-line-11)">│</text><text class="terminal-557225971-r4" x="24.4" y="288.4" textLength="231.8" clip-path="url(#terminal-557225971-line-11)">Detection&#160;techno&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="288.4" textLength="12.2" clip-path="url(#terminal-557225971-line-11)">│</text><text class="terminal-557225971-r2" x="292.8" y="288.4" textLength="341.6" clip-path="url(#terminal-557225971-line-11)">CMS,&#160;frameworks,&#160;serveur&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="288.4" textLength="12.2" clip-path="url(#terminal-557225971-line-11)">│</text><text class="terminal-557225971-r2" x="1512.8" y="288.4" textLength="12.2" clip-path="url(#terminal-557225971-line-11)">
+</text><text class="terminal-557225971-r3" x="0" y="312.8" textLength="12.2" clip-path="url(#terminal-557225971-line-12)">│</text><text class="terminal-557225971-r4" x="24.4" y="312.8" textLength="231.8" clip-path="url(#terminal-557225971-line-12)">Sonde&#160;HTTP&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="312.8" textLength="12.2" clip-path="url(#terminal-557225971-line-12)">│</text><text class="terminal-557225971-r2" x="292.8" y="312.8" textLength="341.6" clip-path="url(#terminal-557225971-line-12)">Statut,&#160;temps,&#160;titre,&#160;taille</text><text class="terminal-557225971-r3" x="646.6" y="312.8" textLength="12.2" clip-path="url(#terminal-557225971-line-12)">│</text><text class="terminal-557225971-r2" x="1512.8" y="312.8" textLength="12.2" clip-path="url(#terminal-557225971-line-12)">
+</text><text class="terminal-557225971-r3" x="0" y="337.2" textLength="12.2" clip-path="url(#terminal-557225971-line-13)">│</text><text class="terminal-557225971-r4" x="24.4" y="337.2" textLength="231.8" clip-path="url(#terminal-557225971-line-13)">Lookup&#160;MAC&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="268.4" y="337.2" textLength="12.2" clip-path="url(#terminal-557225971-line-13)">│</text><text class="terminal-557225971-r2" x="292.8" y="337.2" textLength="341.6" clip-path="url(#terminal-557225971-line-13)">Fabricant&#160;via&#160;OUI&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-557225971-r3" x="646.6" y="337.2" textLength="12.2" clip-path="url(#terminal-557225971-line-13)">│</text><text class="terminal-557225971-r2" x="1512.8" y="337.2" textLength="12.2" clip-path="url(#terminal-557225971-line-13)">
+</text><text class="terminal-557225971-r3" x="0" y="361.6" textLength="658.8" clip-path="url(#terminal-557225971-line-14)">└─────────────────────┴──────────────────────────────┘</text><text class="terminal-557225971-r2" x="1512.8" y="361.6" textLength="12.2" clip-path="url(#terminal-557225971-line-14)">
 </text>
     </g>
     </g>

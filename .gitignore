@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Caches d'outils et environnements virtuels
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+ENV/
+build/
+dist/
+*.spec
+*.egg-info/
+.github
+# Éditeurs
+.idea/
+.vscode/
+
+# Logs et artefacts de test
+*.log
+test_log.txt
+test_out.txt
+
+# Données locales : préférences, dossiers d'investigation, exports, historique
+data/settings.json
+data/cases.db
+data/cases.db-journal
+data/cases.db-wal
+data/cases.db-shm
+data/history.json
+data/exports/
+data/logs/
+data/discord_oauth.json
+data/discord_personal.json
+data/discord_panel_journal.json
+data/discord_panel_templates.json
+data/media/
+data/profile_studio/
+*.sqlite3
+
+# Rapports générés localement
+rapport-*.json
+rapports/

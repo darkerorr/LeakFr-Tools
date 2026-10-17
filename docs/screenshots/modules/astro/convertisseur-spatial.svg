@@ -1,4 +1,4 @@
-<svg class="rich-terminal" viewBox="0 0 1531 123.19999999999999" xmlns="http://www.w3.org/2000/svg">
+<svg class="rich-terminal" viewBox="0 0 1531 147.6" xmlns="http://www.w3.org/2000/svg">
     <!-- Generated with Rich https://www.textualize.io -->
     <style>
 
@@ -19,48 +19,52 @@
         font-weight: 700;
     }
 
-    .terminal-3278907684-matrix {
+    .terminal-3419514162-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-3278907684-title {
+    .terminal-3419514162-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-3278907684-r1 { fill: #36d1ff }
-.terminal-3278907684-r2 { fill: #c5c8c6 }
+    .terminal-3419514162-r1 { fill: #9d8cff }
+.terminal-3419514162-r2 { fill: #c5c8c6 }
     </style>
 
     <defs>
-    <clipPath id="terminal-3278907684-clip-terminal">
-      <rect x="0" y="0" width="1511.8" height="72.19999999999999" />
+    <clipPath id="terminal-3419514162-clip-terminal">
+      <rect x="0" y="0" width="1511.8" height="96.6" />
     </clipPath>
-    <clipPath id="terminal-3278907684-line-0">
+    <clipPath id="terminal-3419514162-line-0">
     <rect x="0" y="1.5" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3278907684-line-1">
+<clipPath id="terminal-3419514162-line-1">
     <rect x="0" y="25.9" width="1512.8" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3419514162-line-2">
+    <rect x="0" y="50.3" width="1512.8" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="121.2" rx="8"/><text class="terminal-3278907684-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;Convertisseur&#160;spatial</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="145.6" rx="8"/><text class="terminal-3419514162-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;Convertisseur&#160;spatial</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
 
-    <g transform="translate(9, 41)" clip-path="url(#terminal-3278907684-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-3419514162-clip-terminal)">
 
-    <g class="terminal-3278907684-matrix">
-    <text class="terminal-3278907684-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-3278907684-line-0)">╭─</text><text class="terminal-3278907684-r1" x="24.4" y="20" textLength="451.4" clip-path="url(#terminal-3278907684-line-0)">─────────────────────────────────────</text><text class="terminal-3278907684-r1" x="475.8" y="20" textLength="561.2" clip-path="url(#terminal-3278907684-line-0)">&#160;Convertisseur&#160;spatial&#160;·&#160;aperçu&#160;de&#160;navigation&#160;</text><text class="terminal-3278907684-r1" x="1037" y="20" textLength="451.4" clip-path="url(#terminal-3278907684-line-0)">─────────────────────────────────────</text><text class="terminal-3278907684-r1" x="1488.4" y="20" textLength="24.4" clip-path="url(#terminal-3278907684-line-0)">─╮</text><text class="terminal-3278907684-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-3278907684-line-0)">
-</text><text class="terminal-3278907684-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-3278907684-line-1)">│</text><text class="terminal-3278907684-r2" x="24.4" y="44.4" textLength="1171.2" clip-path="url(#terminal-3278907684-line-1)">ASTRONOMIE\n\nUA,&#160;annees-lumiere,&#160;parsec\n\nSélectionnez&#160;l&#x27;outil&#160;dans&#160;son&#160;groupe&#160;pour&#160;le&#160;lancer.</text><text class="terminal-3278907684-r1" x="1500.6" y="44.4" textLength="12.2" clip-path="url(#terminal-3278907684-line-1)">│</text><text class="terminal-3278907684-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-3278907684-line-1)">
-</text><text class="terminal-3278907684-r1" x="0" y="68.8" textLength="1512.8" clip-path="url(#terminal-3278907684-line-2)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3278907684-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-3278907684-line-2)">
+    <g class="terminal-3419514162-matrix">
+    <text class="terminal-3419514162-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-3419514162-line-0)">╭─</text><text class="terminal-3419514162-r1" x="24.4" y="20" textLength="451.4" clip-path="url(#terminal-3419514162-line-0)">─────────────────────────────────────</text><text class="terminal-3419514162-r1" x="475.8" y="20" textLength="561.2" clip-path="url(#terminal-3419514162-line-0)">&#160;Convertisseur&#160;spatial&#160;·&#160;aperçu&#160;de&#160;navigation&#160;</text><text class="terminal-3419514162-r1" x="1037" y="20" textLength="451.4" clip-path="url(#terminal-3419514162-line-0)">─────────────────────────────────────</text><text class="terminal-3419514162-r1" x="1488.4" y="20" textLength="24.4" clip-path="url(#terminal-3419514162-line-0)">─╮</text><text class="terminal-3419514162-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-3419514162-line-0)">
+</text><text class="terminal-3419514162-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-3419514162-line-1)">│</text><text class="terminal-3419514162-r2" x="24.4" y="44.4" textLength="1415.2" clip-path="url(#terminal-3419514162-line-1)">ASTRONOMIE&#160;&gt;&#160;Références&#160;&amp;&#160;conversions\n\nUA,&#160;annees-lumiere,&#160;parsec\n\nSélectionnez&#160;l&#x27;outil&#160;dans&#160;son&#160;groupe&#160;pour&#160;le&#160;</text><text class="terminal-3419514162-r1" x="1500.6" y="44.4" textLength="12.2" clip-path="url(#terminal-3419514162-line-1)">│</text><text class="terminal-3419514162-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-3419514162-line-1)">
+</text><text class="terminal-3419514162-r1" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-3419514162-line-2)">│</text><text class="terminal-3419514162-r2" x="24.4" y="68.8" textLength="85.4" clip-path="url(#terminal-3419514162-line-2)">lancer.</text><text class="terminal-3419514162-r1" x="1500.6" y="68.8" textLength="12.2" clip-path="url(#terminal-3419514162-line-2)">│</text><text class="terminal-3419514162-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-3419514162-line-2)">
+</text><text class="terminal-3419514162-r1" x="0" y="93.2" textLength="1512.8" clip-path="url(#terminal-3419514162-line-3)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3419514162-r2" x="1512.8" y="93.2" textLength="12.2" clip-path="url(#terminal-3419514162-line-3)">
 </text>
     </g>
     </g>

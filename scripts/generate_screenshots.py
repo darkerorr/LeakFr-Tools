@@ -23,8 +23,7 @@ OUT = ROOT / "docs" / "screenshots"
 MODULE_DIRS = {
     "OSINT": "osint", "RECONNAISSANCE": "recon", "CYBER": "cyber",
     "PENTEST & RESEAU": "pentest", "DISCORD OSINT": "discord",
-    "UTILITAIRES": "utils", "GENERATEURS": "generateurs",
-    "ASTRONOMIE": "astro",
+    "UTILITAIRES": "utils", "ASTRONOMIE": "astro",
 }
 
 

@@ -1,8 +1,7 @@
 from urllib.parse import quote
-import webbrowser
 from rich.table import Table
 from rich.markup import escape
-from core.common import console, demander, choisir_option, titre, BX, C_OSINT, C_GOLD
+from core.common import console, demander, choisir_option, titre, ouvrir_url, BX, C_OSINT, C_GOLD
 
 def generateur_dorks():
     titre("GÉNÉRATEUR DE GOOGLE DORKS", C_OSINT)
@@ -33,4 +32,4 @@ def generateur_dorks():
     choix = choisir_option("OUVRIR UNE REQUETE", [usage for usage, _ in dorks] + ["Terminer"])
     if choix not in (None, "Terminer"):
         requete = next(dork for usage, dork in dorks if usage == choix)
-        webbrowser.open(f"https://www.google.com/search?q={quote(requete)}")
+        ouvrir_url(f"https://www.google.com/search?q={quote(requete)}")

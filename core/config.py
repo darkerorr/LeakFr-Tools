@@ -7,9 +7,14 @@ import json
 import os
 import sys
 
-# Répertoire de données local (dans le dépôt)
+# Répertoire de données local (dans le dépôt par défaut).
+# LEAKFR_DATA_DIR permet de choisir un dossier utilisateur accessible sur
+# Termux ou dans une installation en lecture seule, sans déplacer les données
+# existantes tant que la variable n'est pas définie.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+_DATA_SURCHARGE = os.environ.get("LEAKFR_DATA_DIR", "").strip()
+DATA_DIR = (os.path.abspath(os.path.expanduser(_DATA_SURCHARGE))
+            if _DATA_SURCHARGE else os.path.join(BASE_DIR, "data"))
 
 # Chemins importants
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
@@ -36,6 +41,14 @@ DEFAUTS = {
         "afficher_panneau_lateral": True,
         "largeur_menu": "auto",  # auto / large / etroit
         "afficher_badges_categories": True,
+    },
+    # Plateforme et interface adaptative (aucun secret ici)
+    "plateforme": {
+        "environnement": "auto",       # windows / linux / termux / macos / autre
+        "mode_texte": False,
+        "largeur_sortie": "auto",      # auto / large / etroit
+        "pagination": 15,
+        "dernier_menu": "",
     },
     # Démarrage
     "demarrage": {

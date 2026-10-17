@@ -8,11 +8,16 @@ import json
 import os
 import sys
 import time
-import unicodedata
 import platform
+from pathlib import Path
 
 if os.name == "nt":
-    os.system("chcp 65001 >nul")
+    # Aucune commande shell : l'API Windows suffit et reste sans effet ailleurs.
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    except (AttributeError, OSError):
+        pass
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
@@ -33,53 +38,32 @@ from core.common import (
     console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW,
     BANNER, C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
-    initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause
+    initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause,
+    clear_screen, configurer_affichage, ask_number, est_ecran_etroit,
+    QuitterApplication,
 )
 from core.config import charger, sauvegarder, restaurer_defauts, DEFAUTS, EXPORTS_DIR
+from core.environment import (
+    ENVIRONNEMENTS, detecter_environnement, select_environment,
+    resume_environnement, libelle_environnement, normaliser_cle,
+)
+from core.compat import afficher_compatibilite
 from core.cases import (
     lister_cases, creer_case, obtenir_case, renommer_case, supprimer_case,
     ajouter_note, modifier_note, supprimer_note,
     ajouter_source, charger_historique, effacer_historique,
-    exporter_case_json
+    exporter_case_json, ajouter_preuve, lister_preuves, verifier_preuve,
+    verifier_chaine, lister_verifications, exporter_preuves_json, exporter_preuves_markdown
+)
+from core.correlate import (
+    correler_case, exporter_json as exporter_correlation_json,
+    exporter_markdown as exporter_correlation_markdown
 )
 
-# Modules individuels par categorie
-from modules.osint import (
-    recherche_pseudo, analyse_email, wayback, robots_sitemap,
-    analyse_url, generateur_dorks, info_telephone, recherche_username_urls
+from core.catalogue import (
+    CATALOGUE, NAV_GROUPS, FLAT, NUM_IDX, SEL, ACTIONS,
+    _OUTILS_PAR_NOM, _ROUTE_PAR_NOM, rechercher_outils as _moteur_recherche,
 )
-from modules.recon import (
-    dns_lookup, reverse_dns, geoloc_ip, asn_info, whois,
-    sous_domaines, spf_dmarc, detect_techno, http_probe, lookup_mac
-)
-from modules.cyber import (
-    audit_headers, scan_ports, certificat_ssl, chaine_redirect,
-    cookie_audit, dnsbl_check, jwt_inspect, recherche_cve, latence_tcp, cors_check,
-    webhook_lab
-)
-from modules.pentest import (
-    scan_ports_avance, banner_grabbing, scan_reseau_local, scan_wifi,
-    info_interfaces, table_arp, dns_bruteforce, dir_bruteforce,
-    sqli_detect, xss_detect, lfi_detect, waf_detect, http_bruteforce,
-    wordlist_gen, traceroute, snmp_probe, http_header_fuzz,
-    open_redirect_test, check_dangerous_ports
-)
-from modules.discord import (
-    discord_id_lookup, webhook_info, webhook_spammer, webhook_delete,
-    bot_token_info, invite_lookup, guild_widget_lookup,
-    snowflake_parser, bot_invite_generator, bot_panel
-)
-from modules.utils import (
-    identifier_hash, generateur_hash, encode_decode, force_mdp,
-    calc_reseau, hash_fichier, luhn_check, user_agent_parse, timestamp_outil,
-    generer_mot_de_passe, formater_json, analyser_texte, generer_uuid,
-    convertir_base, calculer_dates, generer_corpus_http, audit_systeme,
-)
-from modules.astro import (
-    iss, apod, asteroides, planetes, lancements,
-    recherche_astre, lune_soleil, convertisseur, poids_planetes
-)
-from modules.generators import generer_script
 
 # --- Configuration globale ---
 _CONFIG = charger()
@@ -96,6 +80,7 @@ def _synchroniser_couleurs_locales():
 def _appliquer_configuration_visuelle():
     initialiser_theme(_CONFIG)
     _synchroniser_couleurs_locales()
+    configurer_affichage(_CONFIG)
 
 
 _appliquer_configuration_visuelle()
@@ -112,7 +97,7 @@ def _ecran_parametres():
     from core.theme import THEMES, liste_themes, nommer_theme
 
     while True:
-        console.clear()
+        clear_screen()
         titre("PARAMETRES", C_GOLD)
 
         t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
@@ -124,11 +109,14 @@ def _ecran_parametres():
 
         styles = {"dashboard": "Dashboard split", "classique": "Classique", "compact": "Compact"}
         largeurs = {"auto": "Automatique", "large": "Large", "etroit": "Etroit"}
+        plateforme = _CONFIG.setdefault("plateforme", {})
         reglages = [
             "Palette de couleurs", "Style d'interface", "Couleur d'accent",
             "Couleur du texte shell", "Fond shell", "Largeur du menu",
             "Panneau lateral", "Badges de categories", "Banniere de demarrage",
-            "Animations", "Timeout reseau", "Restaurer les parametres par defaut",
+            "Animations", "Timeout reseau", "Environnement (affichage)",
+            "Mode texte de secours", "Largeur de sortie", "Pagination",
+            "Compatibilite des outils", "Restaurer les parametres par defaut",
             "Personnaliser les couleurs du theme", "Retour au menu principal",
         ]
         t.add_row("Palette de couleurs", nommer_theme(app.get("theme_actif", "original")))
@@ -142,6 +130,16 @@ def _ecran_parametres():
         t.add_row("Banniere de demarrage", str(app.get("banniere_demarrage", True)))
         t.add_row("Animations", str(app.get("animations", True)))
         t.add_row("Timeout reseau (s)", str(reseau.get("timeout", 8)))
+        env_configure = str(plateforme.get("environnement") or "auto")
+        if env_configure == "auto":
+            env_configure = f"Automatique ({libelle_environnement(detecter_environnement()['cle'])})"
+        else:
+            env_configure = libelle_environnement(env_configure)
+        t.add_row("Environnement (affichage)", env_configure)
+        t.add_row("Mode texte de secours", str(plateforme.get("mode_texte", False)))
+        t.add_row("Largeur de sortie", largeurs.get(plateforme.get("largeur_sortie"), "Automatique"))
+        t.add_row("Pagination", f"{plateforme.get('pagination', 15)} resultats")
+        t.add_row("Compatibilite des outils", "Diagnostic local")
         t.add_row("Restaurer les parametres par defaut", "")
         t.add_row("Personnaliser les couleurs du theme", "")
         t.add_row("Retour au menu principal", "")
@@ -200,6 +198,41 @@ def _ecran_parametres():
                 ok("Timeout mis a jour.")
             else:
                 bad("Valeur invalide (1-120).")
+        elif c == "Environnement (affichage)":
+            cle = select_environment(_CONFIG)
+            plateforme["environnement"] = normaliser_cle(cle)
+            plateforme["selectionne_le"] = resume_environnement(cle)["detecte_le"]
+            sauvegarder(_CONFIG)
+            _appliquer_configuration_visuelle()
+            ok(f"Affichage adapte a {libelle_environnement(cle)} (systeme reel inchange).")
+        elif c == "Mode texte de secours":
+            plateforme["mode_texte"] = not plateforme.get("mode_texte", False)
+            sauvegarder(_CONFIG)
+            _appliquer_configuration_visuelle()
+            ok("Mode texte active." if plateforme["mode_texte"] else "Mode texte desactive.")
+        elif c == "Largeur de sortie":
+            choix = selectionner_option("LARGEUR DE SORTIE",
+                                        ["Automatique", "Large", "Etroit"])
+            if choix is None:
+                continue
+            plateforme["largeur_sortie"] = {
+                "Automatique": "auto", "Large": "large", "Etroit": "etroit"
+            }[choix]
+            sauvegarder(_CONFIG)
+            _appliquer_configuration_visuelle()
+            ok("Largeur de sortie appliquee.")
+        elif c == "Pagination":
+            valeur = ask_number("Resultats par page", 5, 50,
+                                defaut=plateforme.get("pagination", 15))
+            if valeur is not None:
+                plateforme["pagination"] = valeur
+                sauvegarder(_CONFIG)
+                _appliquer_configuration_visuelle()
+                ok(f"Pagination : {valeur} resultats par page.")
+        elif c == "Compatibilite des outils":
+            afficher_compatibilite()
+            pause()
+            continue
         elif c == "Restaurer les parametres par defaut":
             if Confirm.ask("Restaurer tous les parametres par defaut ?"):
                 _CONFIG = restaurer_defauts()
@@ -211,7 +244,8 @@ def _ecran_parametres():
             _appliquer_configuration_visuelle()
             ok("Reglage d'interface sauvegarde et applique.")
         if c not in {"Couleur d'accent", "Couleur du texte shell", "Fond shell",
-                     "Personnaliser les couleurs du theme"}:
+                     "Personnaliser les couleurs du theme", "Environnement (affichage)",
+                     "Mode texte de secours", "Largeur de sortie", "Pagination"}:
             pause()
 
 
@@ -232,7 +266,7 @@ def _menu_palette_personnalisee():
         "avertissements": "Avertissements", "erreurs": "Erreurs", "panneaux": "Panneaux",
     }
     while True:
-        console.clear()
+        clear_screen()
         titre("PALETTE PERSONNALISEE", C_GOLD)
         table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
         table.add_column("Role")
@@ -280,7 +314,7 @@ def _menu_themes():
     from core.theme import THEMES, liste_themes, nommer_theme
 
     while True:
-        console.clear()
+        clear_screen()
         titre("PERSONNALISATION DES COULEURS", C_GOLD)
 
         app = _CONFIG.get("apparence", {})
@@ -319,7 +353,19 @@ def _intro_ascii(config):
     if not app.get("banniere_demarrage", True):
         return
 
-    anim = app.get("animations", True)
+    clear_screen()
+    if (est_ecran_etroit() or "--text" in sys.argv
+            or "--no-color" in sys.argv):
+        console.print(Align.center(Text(
+            "LeakFr-Tools 2.0",
+            style=f"bold {obtenir_theme().get('principale', '#ff5fd2')}")))
+        console.print(Align.center(Text("OSINT & SECURITY TOOLBOX", style="dim")))
+        console.print()
+        return
+
+    anim = (app.get("animations", True)
+            and "--text" not in sys.argv and "--no-color" not in sys.argv
+            and not est_ecran_etroit())
     palette = obtenir_theme()
 
     logo = [
@@ -334,7 +380,7 @@ def _intro_ascii(config):
     # Petite animation de fondu
     if anim and UNICODE:
         for etape in range(1, 4):
-            console.clear()
+            clear_screen()
             if etape == 1:
                 console.print(Align.center(Text("Initialisation...", style=f"bold {palette.get('principale', '#ff5fd2')}")))
             elif etape == 2:
@@ -347,210 +393,19 @@ def _intro_ascii(config):
                 console.print(Align.center(Text("Investigations  |  Reconnaissance  |  Cyber  |  Reseau", style=f"dim {palette.get('texte_secondaire', '#888888')}")))
             time.sleep(0.15)
     else:
-        console.clear()
+        clear_screen()
         for ligne in logo:
             console.print(Align.center(Text(ligne, style=f"bold {palette.get('principale', '#ff5fd2')}")))
         console.print()
         console.print(Align.center(Text("v2.0  |  OSINT & SECURITY TOOLBOX", style=f"bold {palette.get('titres', '#ffd166')}")))
         console.print(Align.center(Text("Investigations  |  Reconnaissance  |  Cyber  |  Reseau", style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-        time.sleep(0.3)
+        if anim:
+            time.sleep(0.3)
 
 
-CATALOGUE = [
-    ("OSINT", C_OSINT, [
-        ("Recherche de pseudo", "20 plateformes en parallele", recherche_pseudo),
-        ("Analyse d'email", "Format, MX, Gravatar", analyse_email),
-        ("Wayback Machine", "Archives paginees + export", wayback),
-        ("Robots.txt & sitemap", "Fichiers d'exploration du site", robots_sitemap),
-        ("Analyse d'URL", "Parse + redirections + titre", analyse_url),
-        ("Google Dorks", "Requetes OSINT pretes a l'emploi", generateur_dorks),
-        ("Analyse telephone", "Indicatif, pays, format E.164", info_telephone),
-        ("Liens OSINT rapides", "Google, GitHub, VT, Shodan...", recherche_username_urls),
-    ]),
-    ("RECONNAISSANCE", C_RECON, [
-        ("Enregistrements DNS", "A, AAAA, MX, NS, TXT", dns_lookup),
-        ("Reverse DNS (PTR)", "IP -> nom d'hote", reverse_dns),
-        ("Geolocalisation IP", "Pays, ville, fournisseur", geoloc_ip),
-        ("Info ASN / reseau", "AS, hosting, proxy, PTR", asn_info),
-        ("WHOIS", "Infos d'un domaine", whois),
-        ("Sous-domaines", "Via les certificats crt.sh", sous_domaines),
-        ("SPF / DMARC / DKIM", "Securite email du domaine", spf_dmarc),
-        ("Detection techno", "CMS, frameworks, serveur", detect_techno),
-        ("Sonde HTTP", "Statut, temps, titre, taille", http_probe),
-        ("Lookup MAC", "Fabricant via OUI", lookup_mac),
-    ]),
-    ("CYBER", C_CYBER, [
-        ("Audit des headers", "Securite HTTP", audit_headers),
-        ("Scan de ports", "19 ports courants", scan_ports),
-        ("Certificat SSL/TLS", "Validite, SAN, cipher", certificat_ssl),
-        ("Chaine de redirections", "Suivi hop par hop", chaine_redirect),
-        ("Audit des cookies", "Secure, HttpOnly, SameSite", cookie_audit),
-        ("DNSBL / reputation IP", "Spamhaus, SpamCop...", dnsbl_check),
-        ("Decodeur JWT", "Header + payload (sans verif)", jwt_inspect),
-        ("Recherche CVE", "CIRCL / NVD", recherche_cve),
-        ("Latence TCP", "RTT + banner leger", latence_tcp),
-        ("Test CORS", "Allow-Origin / credentials", cors_check),
-        ("Webhook Lab", "Envoi de payload JSON synthetique, statut et duree", webhook_lab),
-    ]),
-    ("PENTEST & RESEAU", C_PENTEST, [
-        ("Scan de ports avance", "Range custom + banner grabbing", scan_ports_avance),
-        ("Banner grabbing", "Service fingerprinting multi-ports", banner_grabbing),
-        ("Scan reseau local", "Decouverte d'hopes LAN", scan_reseau_local),
-        ("Scan WiFi", "Reseaux WiFi visibles + securite", scan_wifi),
-        ("Interfaces & routage", "IP, MAC, table de routage", info_interfaces),
-        ("Table ARP", "IP <-> MAC du reseau local", table_arp),
-        ("DNS Brute-force", "Decouverte de sous-domaines", dns_bruteforce),
-        ("Directory Bruteforce", "Chemins caches sur serveur web", dir_bruteforce),
-        ("Detection SQLi", "Injection SQL (passif/actif)", sqli_detect),
-        ("Detection XSS", "Cross-Site Scripting reflechi", xss_detect),
-        ("Detection LFI", "Local File Inclusion", lfi_detect),
-        ("Detection WAF", "Fingerprint firewall applicatif", waf_detect),
-        ("Brute-force HTTP", "Login form bruteforce", http_bruteforce),
-        ("Generateur wordlist", "Mutations, combos, patterns", wordlist_gen),
-        ("Traceroute", "Chemin reseau hop-by-hop", traceroute),
-        ("Sondage SNMP", "Community strings SNMP v1/v2", snmp_probe),
-        ("Fuzzing headers HTTP", "Injection de headers speciaux", http_header_fuzz),
-        ("Open Redirect", "Test de redirections ouvertes", open_redirect_test),
-        ("Ports dangereux", "Audit des ports a risque", check_dangerous_ports),
-    ]),
-    ("DISCORD OSINT", C_DISCORD, [
-        ("Panel Bot Discord", "Dashboard split-view, presence & audit", bot_panel),
-        ("Lookup ID Discord", "Infos compte + date creation snowflake", discord_id_lookup),
-        ("Info Webhook", "Auteur, serveur, channel, avatar", webhook_info),
-        ("Envoi / Test Webhook", "Test d'envoi & message personnalise", webhook_spammer),
-        ("Supprimer Webhook", "Destruction d'un webhook distant", webhook_delete),
-        ("Info Bot Token", "Permissions, statut, serveurs rejoints", bot_token_info),
-        ("Resolveur Invitation", "Membres, stats, serveur, createur", invite_lookup),
-        ("Widget Serveur", "Membres en ligne, salons, statut", guild_widget_lookup),
-        ("Decodeur Snowflake", "Timestamp, worker, process, binaire", snowflake_parser),
-        ("Generateur OAuth Bot", "Liens d'invitation avec permissions", bot_invite_generator),
-    ]),
-    ("UTILITAIRES", C_UTIL, [
-        ("Identifier un hash", "MD5, SHA, bcrypt...", identifier_hash),
-        ("Generateur de hash", "MD5 -> BLAKE2", generateur_hash),
-        ("Encode / Decode", "Base64, URL, Hex", encode_decode),
-        ("Force mot de passe", "Score + entropie locale", force_mdp),
-        ("Calculateur CIDR", "Sous-reseau IPv4/IPv6", calc_reseau),
-        ("Hash de fichier", "MD5 / SHA-1 / SHA-256", hash_fichier),
-        ("Validateur Luhn", "Cartes, IMEI...", luhn_check),
-        ("Parseur User-Agent", "Navigateur / OS / bot", user_agent_parse),
-        ("Timestamp", "Epoch <-> date UTC", timestamp_outil),
-        ("Generateur de mot de passe", "Secrets aleatoires configurables", generer_mot_de_passe),
-        ("Formateur JSON", "Valider, embellir ou compacter du JSON", formater_json),
-        ("Analyseur de texte", "Compteurs, mots, lignes et frequences", analyser_texte),
-        ("Generateur UUID", "UUID v4 aleatoires en lot", generer_uuid),
-        ("Convertisseur de bases", "Binaire, octal, decimal, hexadecimal", convertir_base),
-        ("Calculateur de dates", "Duree entre deux dates", calculer_dates),
-        ("Corpus cas limites HTTP", "Fixtures locales de fuzzing de parseurs HTTP", generer_corpus_http),
-        ("Audit de la machine", "HWID et inventaire local, sans reseau", audit_systeme),
-    ]),
-    ("GENERATEURS", C_GOLD, [
-        ("Generateur de scripts", "Rapports systeme configurables, JSON/MD/HTML", generer_script),
-    ]),
-    ("ASTRONOMIE", C_ASTRO, [
-        ("ISS en direct", "Position + equipage", iss),
-        ("Image du jour NASA", "APOD, n'importe quelle date", apod),
-        ("Asteroides du jour", "Passages pres de la Terre", asteroides),
-        ("Planetes", "Fiches du systeme solaire", planetes),
-        ("Lancements de fusees", "Calendrier a venir", lancements),
-        ("Recherche d'un astre", "Etoiles, galaxies (SIMBAD)", recherche_astre),
-        ("Lune & Soleil", "Phase, lever, coucher", lune_soleil),
-        ("Convertisseur spatial", "UA, annees-lumiere, parsec", convertisseur),
-        ("Poids sur les astres", "Gravite de chaque astre", poids_planetes),
-    ]),
-]
+# Catalogue, navigation et moteur de recherche : voir core/catalogue.py.
 
-FLAT = []
-for _ci, (_cat, _couleur, _opts) in enumerate(CATALOGUE):
-    for _nom, _desc, _fn in _opts:
-        FLAT.append(dict(num=str(len(FLAT) + 1), nom=_nom, desc=_desc, fn=_fn,
-                         cat=_ci, couleur=_couleur))
-FLAT.append(dict(num="0", nom="Quitter", desc="", fn=None, cat=None, couleur="red"))
-ACTIONS = {f["num"]: f["fn"] for f in FLAT if f["fn"]}
-NUM_IDX = {f["num"]: i for i, f in enumerate(FLAT)}
-SEL = NUM_IDX["1"]
 
-# Les groupes fonctionnels enrichissent la recherche, tandis que l'interface garde
-# les catégories et l'ordre du catalogue d'origine.
-NAV_GROUPS = [
-    ("OSINT", C_OSINT, "Recherches publiques et sources ouvertes", [
-        ("Identités & profils", "Pseudos, numéros et pistes de recherche", [
-            "Recherche de pseudo", "Analyse telephone", "Liens OSINT rapides" ]),
-        ("E-mail", "Validation et signaux publics d'une adresse", ["Analyse d'email"]),
-        ("Domaines & archives", "Contenus indexés, historiques et fichiers publics", [
-            "Wayback Machine", "Robots.txt & sitemap", "Analyse d'URL", "Google Dorks"]),
-    ]),
-    ("RECONNAISSANCE", C_RECON, "Cartographie DNS, domaines, IP et services", [
-        ("Domaines & DNS", "Enregistrements et informations d'enregistrement", [
-            "Enregistrements DNS", "WHOIS", "Sous-domaines", "SPF / DMARC / DKIM"]),
-        ("Adresses & réseau", "Résolution inverse, ASN, géolocalisation et OUI", [
-            "Reverse DNS (PTR)", "Geolocalisation IP", "Info ASN / reseau", "Lookup MAC"]),
-        ("Services Web", "Technologies détectées et sonde HTTP", [
-            "Detection techno", "Sonde HTTP"]),
-    ]),
-    ("SECURITE WEB", C_CYBER, "Contrôles HTTP, TLS et données applicatives", [
-        ("HTTP & navigateur", "En-têtes, cookies, CORS et redirections", [
-            "Audit des headers", "Chaine de redirections", "Audit des cookies", "Test CORS",
-            "Webhook Lab"]),
-        ("TLS & identité", "Certificats et inspection locale de JWT", [
-            "Certificat SSL/TLS", "Decodeur JWT"]),
-        ("Réputation & vulnérabilités", "Sources de réputation et références CVE", [
-            "DNSBL / reputation IP", "Recherche CVE"]),
-    ]),
-    ("RESEAU & LABORATOIRE", C_PENTEST, "Diagnostics et tests contrôlés sur systèmes autorisés", [
-        ("Connectivité & LAN", "Hôtes locaux, interfaces, routes et latence", [
-            "Scan de ports", "Latence TCP", "Scan reseau local", "Scan WiFi",
-            "Interfaces & routage", "Table ARP", "Traceroute"]),
-        ("Services & protocoles", "Ports, bannières et sondes SNMP", [
-            "Scan de ports avance", "Banner grabbing", "Ports dangereux", "Sondage SNMP"]),
-        ("Tests applicatifs autorisés", "Fuzzing et détection en laboratoire uniquement", [
-            "DNS Brute-force", "Directory Bruteforce", "Detection SQLi", "Detection XSS",
-            "Detection LFI", "Detection WAF", "Brute-force HTTP", "Fuzzing headers HTTP",
-            "Open Redirect"]),
-        ("Artefacts de test", "Génération locale de jeux de mots", ["Generateur wordlist"]),
-    ]),
-    ("DISCORD", C_DISCORD, "Outils de plateforme et audit de bot autorisé", [
-        ("Identifiants & serveurs", "Snowflakes, invitations et widgets publics", [
-            "Lookup ID Discord", "Decodeur Snowflake", "Resolveur Invitation", "Widget Serveur"]),
-        ("Bots & intégration", "Configuration et audit avec un bot autorisé", [
-            "Panel Bot Discord", "Info Bot Token", "Generateur OAuth Bot"]),
-        ("Webhooks", "Inspection, test et suppression avec confirmation", [
-            "Info Webhook", "Envoi / Test Webhook", "Supprimer Webhook"]),
-    ]),
-    ("ANALYSE & UTILITAIRES", C_UTIL, "Transformations locales et génération de données", [
-        ("Hashes & mots de passe", "Empreintes et estimation/génération locale", [
-            "Identifier un hash", "Generateur de hash", "Hash de fichier",
-            "Force mot de passe", "Generateur de mot de passe"]),
-        ("Encodage & données", "Formats structurés, texte et identifiants", [
-            "Encode / Decode", "Formateur JSON", "Analyseur de texte", "Generateur UUID"]),
-        ("Réseau & conversions", "CIDR, bases numériques, dates et timestamps", [
-            "Calculateur CIDR", "Validateur Luhn", "Parseur User-Agent", "Timestamp",
-            "Convertisseur de bases", "Calculateur de dates", "Corpus cas limites HTTP"]),
-    ]),
-    ("DOSSIERS & RAPPORTS", C_GOLD, "Conserver notes, sources et exports localement", [
-        ("Investigations", "Dossiers SQLite, journal d'activité et export JSON", []),
-    ]),
-    ("ASTRONOMIE", C_ASTRO, "Observation, éphémérides et conversions spatiales", [
-        ("Observation & événements", "ISS, astéroïdes et lancements", [
-            "ISS en direct", "Asteroides du jour", "Lancements de fusees"]),
-        ("Références & conversions", "Corps célestes, Soleil/Lune et unités", [
-            "Image du jour NASA", "Planetes", "Recherche d'un astre", "Lune & Soleil",
-            "Convertisseur spatial", "Poids sur les astres"]),
-    ]),
-]
-
-_OUTILS_PAR_NOM = {outil["nom"]: outil for outil in FLAT if outil["fn"]}
-_ROUTE_PAR_NOM = {}
-for _categorie, _couleur, _outils in CATALOGUE:
-    for _nom, _description, _fonction in _outils:
-        _outil = _OUTILS_PAR_NOM[_nom]
-        _outil["categorie_navigation"] = _categorie
-        _outil["section_navigation"] = _categorie
-        _outil["chemin_navigation"] = _categorie
-        _ROUTE_PAR_NOM[_nom] = _categorie
-
-# Ces groupes alimentent les alias de recherche et les métadonnées des outils,
-# mais ne modifient pas le menu principal en arbre.
 def _selectionner_dossier(titre_menu):
     dossiers = lister_cases()
     if not dossiers:
@@ -565,14 +420,26 @@ def _selectionner_dossier(titre_menu):
 def _gestion_dossiers():
     """Interface locale de gestion des dossiers, notes, sources et exports."""
     while True:
-        console.clear()
+        clear_screen()
         titre("DOSSIERS & RAPPORTS", C_GOLD)
         choix = selectionner_option("DOSSIERS & RAPPORTS", [
             "Lister les dossiers", "Créer un dossier", "Ajouter une note",
-            "Ajouter une source", "Exporter un dossier JSON", "Retour au menu principal",
+            "Ajouter une source", "Preuves (chaines d'integrite)",
+            "Correler les observations", "Exporter un dossier JSON",
+            "Retour au menu principal",
         ])
         if choix is None or choix == "Retour au menu principal":
             return
+        if choix == "Preuves (chaines d'integrite)":
+            case = _selectionner_dossier("PREUVES")
+            if case is not None:
+                _gestion_preuves(case)
+            continue
+        if choix == "Correler les observations":
+            case = _selectionner_dossier("CORRELATION")
+            if case is not None:
+                _correler_dossier(case)
+            continue
         if choix == "Créer un dossier":
             nom = Prompt.ask("Nom du dossier").strip()
             if not nom:
@@ -622,12 +489,151 @@ def _gestion_dossiers():
                 pause()
             else:
                 donnee = exporter_case_json(case["id"])
-                os.makedirs(EXPORTS_DIR, exist_ok=True)
-                chemin = os.path.join(EXPORTS_DIR, f"dossier-{case['id']}.json")
-                with open(chemin, "w", encoding="utf-8") as fichier:
-                    json.dump(donnee, fichier, ensure_ascii=False, indent=2)
+                dossier = Path(EXPORTS_DIR)
+                dossier.mkdir(parents=True, exist_ok=True)
+                chemin = dossier / f"dossier-{case['id']}.json"
+                chemin.write_text(json.dumps(donnee, ensure_ascii=False, indent=2),
+                                  encoding="utf-8")
                 ok(f"Export JSON créé : {chemin}")
                 pause()
+
+
+def _gestion_preuves(case):
+    """Registre de preuves chaine, verifications et exports."""
+    while True:
+        clear_screen()
+        titre(f"PREUVES — #{case['id']} {case['title']}", C_GOLD)
+        choix = selectionner_option("PREUVES", [
+            "Ajouter un fichier", "Lister et verifier", "Verifier la chaine",
+            "Historique des verifications", "Exporter JSON", "Exporter Markdown", "Retour",
+        ])
+        if choix is None or choix == "Retour":
+            return
+        if choix == "Ajouter un fichier":
+            chemin = Prompt.ask("Chemin du fichier local").strip()
+            if not chemin:
+                warn("Chemin vide.")
+                pause()
+                continue
+            source = Prompt.ask("Source declaree (facultative)", default="").strip()
+            note = Prompt.ask("Note (facultative)", default="").strip()
+            try:
+                preuve_id = ajouter_preuve(case["id"], chemin, source, note)
+            except (ValueError, OSError) as exc:
+                warn(str(exc))
+            else:
+                ok(f"Preuve #{preuve_id} enregistree (empreinte SHA-256).")
+            pause()
+        elif choix == "Lister et verifier":
+            preuves = lister_preuves(case["id"])
+            if not preuves:
+                warn("Aucune preuve enregistree.")
+                pause()
+                continue
+            tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+            tableau.add_column("#")
+            tableau.add_column("Fichier")
+            tableau.add_column("SHA-256")
+            tableau.add_column("Etat")
+            for preuve in preuves:
+                etat = verifier_preuve(preuve["id"])
+                tableau.add_row(str(preuve["id"]), preuve["path"], preuve["sha256"][:16] + "...",
+                                "intact" if etat["intact"] else etat["motif"])
+            console.print(tableau)
+            pause()
+        elif choix == "Verifier la chaine":
+            resultat = verifier_chaine(case["id"])
+            if resultat["valide"]:
+                ok(f"Chaine coherente sur {resultat['entrees']} entree(s).")
+            else:
+                for anomalie in resultat["anomalies"]:
+                    warn(f"Entree {anomalie['id']} : {anomalie['motif']}")
+            console.print("[dim]Registre local : il detecte une alteration isolee, pas une "
+                          "reecriture complete avec recalcul des empreintes.[/]")
+            pause()
+        elif choix == "Historique des verifications":
+            controles = lister_verifications(case_id=case["id"])
+            if not controles:
+                warn("Aucun controle enregistre.")
+            else:
+                tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+                tableau.add_column("Preuve")
+                tableau.add_column("Controle (UTC)")
+                tableau.add_column("Etat")
+                tableau.add_column("Detail")
+                for controle in controles[:50]:
+                    tableau.add_row(str(controle["evidence_id"]), controle["checked_at"],
+                                    "intact" if controle["intact"] else "modifie",
+                                    controle["motif"])
+                console.print(tableau)
+            pause()
+        elif choix in {"Exporter JSON", "Exporter Markdown"}:
+            dossier = Path(EXPORTS_DIR)
+            dossier.mkdir(parents=True, exist_ok=True)
+            horodatage = time.strftime("%Y%m%d-%H%M%S")
+            if choix == "Exporter JSON":
+                contenu = json.dumps(exporter_preuves_json(case["id"]), ensure_ascii=False, indent=2)
+                chemin = dossier / f"preuves-{case['id']}-{horodatage}.json"
+            else:
+                contenu = exporter_preuves_markdown(case["id"])
+                chemin = dossier / f"preuves-{case['id']}-{horodatage}.md"
+            chemin.write_text(contenu + ("" if contenu.endswith("\n") else "\n"),
+                              encoding="utf-8")
+            ok(f"Export ecrit : {chemin}")
+            pause()
+
+
+def _correler_dossier(case):
+    """Correlation des valeurs techniques presentes dans les sources et notes."""
+    clear_screen()
+    titre(f"CORRELATION — #{case['id']} {case['title']}", C_GOLD)
+    try:
+        resultat = correler_case(case["id"])
+    except ValueError as exc:
+        warn(str(exc))
+        pause()
+        return
+    exactes = resultat["correspondances_exactes"]
+    if exactes:
+        tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+        tableau.add_column("Type")
+        tableau.add_column("Valeur")
+        tableau.add_column("Origines")
+        for entite in exactes[:30]:
+            origines = ", ".join(f"{p['origine']} #{p['id']}" for p in entite["provenances"])
+            tableau.add_row(entite["type"], entite["valeur"], origines)
+        console.print(tableau)
+    else:
+        warn("Aucune valeur partagee entre plusieurs origines.")
+    if resultat["rapprochements"]:
+        console.print("[bold]Rapprochements moins certains :[/]")
+        for proche in resultat["rapprochements"][:15]:
+            console.print(f"  - {proche['a']} ~ {proche['b']} ({proche['indice']})")
+    console.print(f"[dim]{resultat['avertissement']}[/]")
+    if Confirm.ask("Exporter la correlation ?", default=False):
+        dossier = Path(EXPORTS_DIR)
+        dossier.mkdir(parents=True, exist_ok=True)
+        horodatage = time.strftime("%Y%m%d-%H%M%S")
+        chemin = dossier / f"correlation-{case['id']}-{horodatage}.json"
+        chemin.write_text(exporter_correlation_json(resultat), encoding="utf-8")
+        ok(f"Export JSON ecrit : {chemin}")
+    pause()
+
+
+def _ouvrir_preuves():
+    """Raccourci de recherche vers le registre de preuves d'un dossier."""
+    case = _selectionner_dossier("PREUVES — CHOISIR UN DOSSIER")
+    if case is None:
+        return
+    _gestion_preuves(case)
+
+
+def _ouvrir_correlation():
+    """Raccourci de recherche vers la correlation d'un dossier."""
+    case = _selectionner_dossier("CORRELATION — CHOISIR UN DOSSIER")
+    if case is None:
+        return
+    _correler_dossier(case)
 
 
 def _afficher_historique():
@@ -652,57 +658,19 @@ _SEARCH_ACTIONS = [
      "fn": _gestion_dossiers, "chemin_navigation": "DOSSIERS & RAPPORTS > Investigations"},
     {"num": "history", "nom": "Historique local", "desc": "Consulter les dernières opérations enregistrées localement",
      "fn": _afficher_historique, "chemin_navigation": "DOSSIERS & RAPPORTS > Investigations"},
+    {"num": "evidence", "nom": "Evidence Chain Ledger",
+     "desc": "Enregistrer un fichier local, calculer son SHA-256 et vérifier le registre chaîné",
+     "fn": _ouvrir_preuves, "chemin_navigation": "DOSSIERS & RAPPORTS > Preuves"},
+    {"num": "correlation", "nom": "Finding Correlator",
+     "desc": "Rapprocher les domaines, URL, IP, e-mails et pseudos des sources d'un dossier",
+     "fn": _ouvrir_correlation, "chemin_navigation": "DOSSIERS & RAPPORTS > Corrélation"},
 ]
 ACTIONS.update({outil["num"]: outil["fn"] for outil in _SEARCH_ACTIONS})
 
 # Mots-clés métier complémentaires aux noms/descriptions (recherche sans accents).
-MOTS_CLES_RECHERCHE = {
-    "Recherche de pseudo": "username handle compte profil social media",
-    "Analyse d'email": "courriel mailbox mx adresse électronique",
-    "Enregistrements DNS": "dns record zone aaaa mx ns txt",
-    "Reverse DNS (PTR)": "ptr reverse résolution inverse hostname",
-    "Info ASN / reseau": "asn bgp fournisseur opérateur réseau",
-    "Sous-domaines": "crt certificats domains enumeration",
-    "Audit des headers": "headers entêtes csp hsts x-frame-options",
-    "Certificat SSL/TLS": "https certificat x509 tls expiration",
-    "Test CORS": "cross origin navigateur cors",
-    "Webhook Lab": "webhook endpoint http post payload json test integration",
-    "Decodeur JWT": "token bearer json web token",
-    "Fuzzing headers HTTP": "fuzz edge cases malformed request",
-    "Generateur wordlist": "dictionnaire mutations jeu de données",
-    "Calculateur CIDR": "subnet masque réseau ip",
-    "Corpus cas limites HTTP": "http protocol parser fuzzing edge cases corpus fixtures",
-    "Generateur de scripts": "script python autonome pyinstaller executable hwid rapport machine json markdown html systeme",
-    "Audit de la machine": "hwid machine identifiant systeme inventaire hostname",
-    "Dossiers & rapports": "case investigation notes sources dossier",
-}
-
-
-def _normaliser_recherche(texte):
-    texte = unicodedata.normalize("NFKD", str(texte).casefold())
-    return "".join(car for car in texte if not unicodedata.combining(car))
-
-
 def rechercher_outils(terme, limite=20):
-    """Recherche déterministe dans nom, usage, catégorie et alias fonctionnels."""
-    termes = _normaliser_recherche(terme).split()
-    if not termes:
-        return []
-    resultats = []
-    for outil in [*FLAT, *_SEARCH_ACTIONS]:
-        if not outil["fn"]:
-            continue
-        texte = " ".join((outil["nom"], outil["desc"], outil.get("chemin_navigation", ""),
-                          MOTS_CLES_RECHERCHE.get(outil["nom"], "")))
-        normalise = _normaliser_recherche(texte)
-        if all(mot in normalise for mot in termes):
-            nom = _normaliser_recherche(outil["nom"])
-            score = (0 if nom.startswith(" ".join(termes)) else 1,
-                     0 if all(mot in nom for mot in termes) else 1,
-                     outil["nom"].casefold())
-            resultats.append((score, outil))
-    resultats.sort(key=lambda item: item[0])
-    return [outil for _, outil in resultats[:limite]]
+    """Recherche dans le catalogue et les actions transverses de l'interface."""
+    return _moteur_recherche(terme, limite, _SEARCH_ACTIONS)
 
 
 def _libelle_resultat(outil):
@@ -754,7 +722,6 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         ("PENTEST", C_PENTEST),
         ("DISCORD", C_DISCORD),
         ("UTILS", C_UTIL),
-        ("GEN", C_GOLD),
         ("ASTRO", C_ASTRO),
     ]
     if ui_cfg.get("afficher_badges_categories", True):
@@ -988,7 +955,7 @@ def menu_interactif():
                 try:
                     _ecran_parametres()
                 finally:
-                    console.clear()
+                    clear_screen()
                     T.__enter__()
                     live.start()
                 buf = ""
@@ -998,7 +965,7 @@ def menu_interactif():
                 try:
                     result = recherche_globale()
                 finally:
-                    console.clear()
+                    clear_screen()
                     T.__enter__()
                     live.start()
                 if result:
@@ -1010,7 +977,7 @@ def menu_interactif():
                 try:
                     _gestion_dossiers()
                 finally:
-                    console.clear()
+                    clear_screen()
                     T.__enter__()
                     live.start()
                 buf = ""
@@ -1020,7 +987,7 @@ def menu_interactif():
                 try:
                     _afficher_historique()
                 finally:
-                    console.clear()
+                    clear_screen()
                     T.__enter__()
                     live.start()
                 buf = ""
@@ -1060,34 +1027,70 @@ def menu_simple():
                 return entree["num"]
         bad("Outil introuvable dans le catalogue.")
 
+def _initialiser_environnement(force=None):
+    """Sélectionne l'environnement d'affichage et le persiste localement.
+
+    Le choix ne modifie que les préférences d'interface : aucune variable
+    système, aucun binaire et aucun système d'exploitation ne sont changés.
+    """
+    global _CONFIG
+    detecte = detecter_environnement()
+    if force:
+        cle = normaliser_cle(force)
+        console.print(f"Environnement d'affichage forcé : {libelle_environnement(cle)}")
+    else:
+        cle = select_environment(_CONFIG, detecte=detecte)
+    plateforme = _CONFIG.setdefault("plateforme", {})
+    plateforme["environnement"] = normaliser_cle(cle)
+    plateforme["selectionne_le"] = resume_environnement(cle)["detecte_le"]
+    sauvegarder(_CONFIG)
+    _appliquer_configuration_visuelle()
+    return cle
+
+
 def main():
     global _CONFIG
     parser = argparse.ArgumentParser(
         description="LeakFr-Tools : boîte à outils OSINT, réseau et cybersécurité.",
         epilog="Utilise les tests actifs uniquement sur des systèmes autorisés.",
     )
-    parser.add_argument("--simple", action="store_true", help="désactive le menu clavier interactif")
+    parser.add_argument("--simple", action="store_true",
+                        help="force les menus numériques non interactifs (déjà par défaut)")
+    parser.add_argument("--dashboard", action="store_true",
+                        help="active l'ancien tableau de bord à flèches (desktop uniquement)")
     parser.add_argument("--ascii", action="store_true", help="privilégie un affichage compatible ASCII")
+    parser.add_argument("--text", "--no-color", dest="text", action="store_true",
+                        help="mode texte simple, sans couleur ni animation")
+    parser.add_argument("--phone", action="store_true",
+                        help="force le rendu mobile et la pagination réduite")
+    parser.add_argument("--env", choices=[cle for cle, _ in ENVIRONNEMENTS],
+                        help="force l'environnement d'affichage sans changer le système réel")
     parser.add_argument("--version", action="version", version="LeakFr-Tools 2.0")
     args = parser.parse_args()
     global INTERACTIF, UNICODE, BX, CONN_T, CONN_L, PIPE
-    if args.simple:
-        INTERACTIF = False
+    # Le parcours numérique est le comportement par défaut sur tous les OS.
+    INTERACTIF = (bool(args.dashboard) and not args.simple
+                  and sys.stdin.isatty() and sys.stdout.isatty())
     if args.ascii:
         UNICODE = False
         BX = box.ASCII
         CONN_T, CONN_L, PIPE = ("|-- ", "`-- ", "|   ")
     _intro_ascii(_CONFIG)
+    _initialiser_environnement(args.env)
     while True:
         try:
             choix = menu_interactif() if INTERACTIF else menu_simple()
+        except QuitterApplication:
+            break
         except KeyboardInterrupt:
             break
         if choix == "0":
             break
-        console.clear()
+        clear_screen()
         try:
             ACTIONS[choix]()
+        except QuitterApplication:
+            break
         except KeyboardInterrupt:
             warn("Interrompu.")
         except Exception as e:
@@ -1096,8 +1099,8 @@ def main():
             from core.common import pause
             pause()
         except (KeyboardInterrupt, EOFError):
-            pass
-    console.clear()
+            break
+    clear_screen()
     console.print(texte_arc("A bientot !", time.time(), 0), justify="center")
 
 if __name__ == "__main__":

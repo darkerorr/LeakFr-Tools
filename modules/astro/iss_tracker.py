@@ -1,10 +1,9 @@
 from datetime import datetime, timezone
 import requests
-import webbrowser
 from rich.table import Table
 from rich.prompt import Confirm
 from rich.markup import escape
-from core.common import console, titre, bad, kv, attente, BX, C_ASTRO, TIMEOUT
+from core.common import console, titre, bad, kv, attente, ouvrir_url, BX, C_ASTRO, TIMEOUT
 
 def iss():
     titre("ISS : POSITION EN DIRECT", C_ASTRO)
@@ -40,4 +39,4 @@ def iss():
         t.add_row(escape(p.get("name", "?")), escape(p.get("craft", "?")))
     console.print(t)
     if Confirm.ask("Ouvrir la position sur la carte ?", default=False):
-        webbrowser.open(carte)
+        ouvrir_url(carte)

@@ -19,48 +19,48 @@
         font-weight: 700;
     }
 
-    .terminal-4103546232-matrix {
+    .terminal-3202425528-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-4103546232-title {
+    .terminal-3202425528-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-4103546232-r1 { fill: #ff5fd2 }
-.terminal-4103546232-r2 { fill: #c5c8c6 }
+    .terminal-3202425528-r1 { fill: #5865f2 }
+.terminal-3202425528-r2 { fill: #c5c8c6 }
     </style>
 
     <defs>
-    <clipPath id="terminal-4103546232-clip-terminal">
+    <clipPath id="terminal-3202425528-clip-terminal">
       <rect x="0" y="0" width="1511.8" height="72.19999999999999" />
     </clipPath>
-    <clipPath id="terminal-4103546232-line-0">
+    <clipPath id="terminal-3202425528-line-0">
     <rect x="0" y="1.5" width="1512.8" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-4103546232-line-1">
+<clipPath id="terminal-3202425528-line-1">
     <rect x="0" y="25.9" width="1512.8" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="121.2" rx="8"/><text class="terminal-4103546232-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;Envoi&#160;/&#160;Test&#160;Webhook</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1529" height="121.2" rx="8"/><text class="terminal-3202425528-title" fill="#c5c8c6" text-anchor="middle" x="764" y="27">LeakFr-Tools&#160;—&#160;Envoi&#160;/&#160;Test&#160;Webhook</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
 
-    <g transform="translate(9, 41)" clip-path="url(#terminal-4103546232-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-3202425528-clip-terminal)">
 
-    <g class="terminal-4103546232-matrix">
-    <text class="terminal-4103546232-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-4103546232-line-0)">╭─</text><text class="terminal-4103546232-r1" x="24.4" y="20" textLength="451.4" clip-path="url(#terminal-4103546232-line-0)">─────────────────────────────────────</text><text class="terminal-4103546232-r1" x="475.8" y="20" textLength="549" clip-path="url(#terminal-4103546232-line-0)">&#160;Envoi&#160;/&#160;Test&#160;Webhook&#160;·&#160;aperçu&#160;de&#160;navigation&#160;</text><text class="terminal-4103546232-r1" x="1024.8" y="20" textLength="463.6" clip-path="url(#terminal-4103546232-line-0)">──────────────────────────────────────</text><text class="terminal-4103546232-r1" x="1488.4" y="20" textLength="24.4" clip-path="url(#terminal-4103546232-line-0)">─╮</text><text class="terminal-4103546232-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-4103546232-line-0)">
-</text><text class="terminal-4103546232-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-4103546232-line-1)">│</text><text class="terminal-4103546232-r2" x="24.4" y="44.4" textLength="1317.6" clip-path="url(#terminal-4103546232-line-1)">DISCORD&#160;OSINT\n\nTest&#160;d&#x27;envoi&#160;&amp;&#160;message&#160;personnalise\n\nSélectionnez&#160;l&#x27;outil&#160;dans&#160;son&#160;groupe&#160;pour&#160;le&#160;lancer.</text><text class="terminal-4103546232-r1" x="1500.6" y="44.4" textLength="12.2" clip-path="url(#terminal-4103546232-line-1)">│</text><text class="terminal-4103546232-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-4103546232-line-1)">
-</text><text class="terminal-4103546232-r1" x="0" y="68.8" textLength="1512.8" clip-path="url(#terminal-4103546232-line-2)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-4103546232-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-4103546232-line-2)">
+    <g class="terminal-3202425528-matrix">
+    <text class="terminal-3202425528-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-3202425528-line-0)">╭─</text><text class="terminal-3202425528-r1" x="24.4" y="20" textLength="451.4" clip-path="url(#terminal-3202425528-line-0)">─────────────────────────────────────</text><text class="terminal-3202425528-r1" x="475.8" y="20" textLength="549" clip-path="url(#terminal-3202425528-line-0)">&#160;Envoi&#160;/&#160;Test&#160;Webhook&#160;·&#160;aperçu&#160;de&#160;navigation&#160;</text><text class="terminal-3202425528-r1" x="1024.8" y="20" textLength="463.6" clip-path="url(#terminal-3202425528-line-0)">──────────────────────────────────────</text><text class="terminal-3202425528-r1" x="1488.4" y="20" textLength="24.4" clip-path="url(#terminal-3202425528-line-0)">─╮</text><text class="terminal-3202425528-r2" x="1512.8" y="20" textLength="12.2" clip-path="url(#terminal-3202425528-line-0)">
+</text><text class="terminal-3202425528-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-3202425528-line-1)">│</text><text class="terminal-3202425528-r2" x="24.4" y="44.4" textLength="1378.6" clip-path="url(#terminal-3202425528-line-1)">DISCORD&#160;&gt;&#160;Webhooks\n\nTest&#160;d&#x27;envoi&#160;&amp;&#160;message&#160;personnalise\n\nSélectionnez&#160;l&#x27;outil&#160;dans&#160;son&#160;groupe&#160;pour&#160;le&#160;lancer.</text><text class="terminal-3202425528-r1" x="1500.6" y="44.4" textLength="12.2" clip-path="url(#terminal-3202425528-line-1)">│</text><text class="terminal-3202425528-r2" x="1512.8" y="44.4" textLength="12.2" clip-path="url(#terminal-3202425528-line-1)">
+</text><text class="terminal-3202425528-r1" x="0" y="68.8" textLength="1512.8" clip-path="url(#terminal-3202425528-line-2)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3202425528-r2" x="1512.8" y="68.8" textLength="12.2" clip-path="url(#terminal-3202425528-line-2)">
 </text>
     </g>
     </g>
