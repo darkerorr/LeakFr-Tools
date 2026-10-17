@@ -12,11 +12,11 @@ import sys
 import unicodedata
 from pathlib import Path
 
-from rich.prompt import Confirm
+from rich.panel import Panel
 from rich.table import Table
 
 from core.common import BX, C_GOLD, console, demander, kv, ok, titre, warn
-from modules.generators import build
+from modules.generators import build, transmission
 from modules.generators.runtime import collectors, exporters
 
 SECTIONS = {
@@ -38,7 +38,7 @@ SECTIONS = {
     "reseau": {
         "titre": "Reseau",
         "description": "Interfaces locales, etat, adresses privees, passerelle et DNS.",
-        "sensible": True,
+        "sensible": False,
     },
     "logiciels": {
         "titre": "Logiciels installes",
@@ -87,6 +87,12 @@ PROFILS = {
                  "peripheriques"],
 }
 
+# "tout" ne selectionne que ces sections : les options sensibles ou couteuses
+# (session, fichiers, empreinte, historique) restent explicites.
+STANDARD = ("systeme", "materiel", "disques", "reseau", "logiciels", "dev",
+            "peripheriques")
+OPTIONNELLES = ("fichiers", "session", "empreinte", "historique")
+
 FORMATS = {"json": "json", "markdown": "md", "html": "html"}
 
 NOM_INTERDITS = set('<>:"/\\|?*')
@@ -96,9 +102,9 @@ def config_par_defaut():
     return {
         "nom_script": "rapport-machine.py",
         "nom_rapport": "Rapport machine",
-        "dossier_sortie": str(Path.cwd() / "rapports"),
+        "dossier_sortie": "rapports",
         "profil": "standard",
-        "sections": list(PROFILS["standard"]),
+        "sections": list(STANDARD),
         "formats": ["json", "markdown"],
         "fichiers": [],
         "extensions": [],
@@ -111,6 +117,7 @@ def config_par_defaut():
         "details_erreurs": "complet",
         "mode_sortie": "fichier",
         "compilation": "aucune",
+        "transmission": False,
     }
 
 
@@ -370,144 +377,443 @@ def construire_script(config):
     )
 
 
+def _libelles(sections):
+    return ", ".join(SECTIONS[cle]["titre"] for cle in sections)
+
+
 def _table_sections(sections):
     table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-    table.add_column("#", justify="right")
-    table.add_column("Section")
-    table.add_column("Description")
-    table.add_column("Sensible", justify="center")
+    table.add_column("#", justify="right", width=3)
+    table.add_column("Section", width=34)
+    table.add_column("Sensible", justify="center", width=8)
     for numero, cle in NUMEROS.items():
         definition = SECTIONS[cle]
-        table.add_row(numero, definition["titre"], definition["description"],
+        marque = "incluse" if cle in sections else "-"
+        table.add_row(numero, f"{definition['titre']} [{marque}]",
                       "oui" if definition["sensible"] else "non")
     console.print(table)
 
 
-def _etape_a(config):
-    config["nom_script"] = valider_nom_script(
-        demander("Nom du script Python", config["nom_script"]))
-    config["nom_rapport"] = demander("Nom du rapport", config["nom_rapport"]).strip() \
-        or config["nom_rapport"]
-    formats = demander("Formats (json markdown html)", " ".join(config["formats"]))
-    selection = [partie.lower() for partie in formats.replace(",", " ").split()]
-    inconnus = [partie for partie in selection if partie not in FORMATS]
-    if inconnus:
-        raise ValueError(f"format(s) inconnu(s) : {', '.join(inconnus)}")
-    if not selection:
-        raise ValueError("aucun format selectionne")
-    config["formats"] = selection
-    config["dossier_sortie"] = str(valider_dossier(
-        demander("Repertoire de sortie", config["dossier_sortie"])))
-    profil = demander("Profil (minimal/standard/detaille)", config["profil"]).lower()
-    if profil not in PROFILS:
-        raise ValueError("profil inconnu : choisissez minimal, standard ou detaille")
-    config["profil"] = profil
-    config["sections"] = list(PROFILS[profil])
-    return config
+# --- Saisies centralisees -------------------------------------------------
+
+def _saisie(label, defaut=""):
+    """Affiche le defaut et l'applique si la reponse est vide."""
+    if defaut:
+        return demander(f"{label} (Entree = {defaut})", defaut)
+    return demander(label)
 
 
-def _etape_b(config):
+def _oui_non(label, defaut=True):
+    """Repete la question tant que la reponse n'est pas oui ou non."""
+    defaut_txt = "oui" if defaut else "non"
     while True:
-        _table_sections(config["sections"])
-        actuelles = " ".join(numero for numero, cle in NUMEROS.items()
-                             if cle in config["sections"])
-        saisie = demander("Sections a inclure (numeros, 'tout', vide = conserve)",
-                          actuelles).strip().lower()
-        if saisie == "tout":
-            config["sections"] = list(ORDRE)
-        elif saisie:
-            demandes = [partie for partie in saisie.replace(",", " ").split() if partie]
-            inconnus = [partie for partie in demandes if partie not in NUMEROS]
-            if inconnus:
-                warn(f"Numero(s) inconnu(s) : {', '.join(inconnus)}")
-                continue
-            config["sections"] = [NUMEROS[partie] for partie in demandes]
-        if not config["sections"]:
-            warn("Selectionnez au moins une section.")
+        reponse = _saisie(label, defaut_txt).strip().lower()
+        if reponse in {"oui", "o", "y", "yes"}:
+            return True
+        if reponse in {"non", "n", "no"}:
+            return False
+        warn(f"Reponse attendue : oui ou non (recu : {reponse!r}).")
+
+
+def _entier(label, defaut, minimum, maximum):
+    """Valide un entier dans un intervalle, avec nouvelle demande sinon."""
+    while True:
+        brut = _saisie(label, str(defaut)).strip()
+        try:
+            valeur = int(brut)
+        except ValueError:
+            warn(f"{label} : nombre entier attendu (recu : {brut!r}).")
             continue
-        console.print("[bold]Selection :[/] " + ", ".join(
-            SECTIONS[cle]["titre"] for cle in config["sections"]))
-        if Confirm.ask("Valider cette selection ?", default=True):
-            return config
+        if not minimum <= valeur <= maximum:
+            warn(f"{label} : valeur attendue entre {minimum} et {maximum}.")
+            continue
+        return valeur
 
 
-def _etape_c(config):
-    if "fichiers" in config["sections"]:
-        chemins = demander("Fichiers/dossiers a inventorier (separes par ';', vide = aucun)",
-                           ";".join(config["fichiers"]))
-        config["fichiers"] = [partie.strip() for partie in chemins.split(";") if partie.strip()]
-        extensions = demander("Extensions autorisees (ex: .py .txt, vide = toutes)",
-                              " ".join(config["extensions"]))
-        config["extensions"] = [partie if partie.startswith(".")
-                                else f".{partie}" for partie in extensions.split()]
-        config["limite_fichiers"] = _entier("Limite de fichiers analyses",
-                                            config["limite_fichiers"], 1, 5000)
-        exclusions = demander("Dossiers exclus (separes par ';', vide = aucun)",
-                              ";".join(config["dossiers_exclus"]))
-        config["dossiers_exclus"] = [partie.strip() for partie in exclusions.split(";")
-                                     if partie.strip()]
-    if "logiciels" in config["sections"]:
-        config["limite_logiciels"] = _entier("Limite de logiciels listes",
-                                             config["limite_logiciels"], 1, 2000)
-    if "session" in config["sections"]:
-        config["session_compte"] = Confirm.ask(
-            "Inclure le nom de compte et le domaine ?", default=config["session_compte"])
-        config["session_home"] = Confirm.ask(
-            "Inclure le dossier personnel ?", default=config["session_home"])
-    if "empreinte" in config["sections"]:
-        config["empreinte"] = Confirm.ask(
-            "Calculer l'empreinte machine (HWID) ?", default=config["empreinte"])
-    config["details_erreurs"] = demander("Detail des erreurs (complet/resume)",
-                                         config["details_erreurs"]).lower()
-    if config["details_erreurs"] not in {"complet", "resume"}:
-        raise ValueError("detail des erreurs : complet ou resume")
-    mode = demander("Mode de sortie (terminal/fichier/les_deux)",
-                    config["mode_sortie"]).lower()
-    if mode not in {"terminal", "fichier", "les_deux"}:
-        raise ValueError("mode de sortie : terminal, fichier ou les_deux")
-    config["mode_sortie"] = mode
+def _liste(label, defaut=""):
+    """Liste separee par ';' ; les separateurs seuls valent une liste vide."""
+    brut = _saisie(label, defaut)
+    return [morceau.strip() for morceau in brut.split(";") if morceau.strip()]
+
+
+def _choix_parmi(label, defaut, valeurs):
+    while True:
+        reponse = _saisie(label, defaut).strip().lower()
+        if reponse in valeurs:
+            return reponse
+        warn(f"Choix attendu : {', '.join(valeurs)} (recu : {reponse!r}).")
+
+
+def _choix_formats(config):
+    while True:
+        brut = _saisie("Formats (json markdown html)", " ".join(config["formats"]))
+        selection = [partie.lower() for partie in brut.replace(",", " ").split() if partie]
+        inconnus = [partie for partie in selection if partie not in FORMATS]
+        if inconnus:
+            warn(f"Format(s) inconnu(s) : {', '.join(inconnus)}")
+            continue
+        if not selection:
+            warn("Selectionnez au moins un format.")
+            continue
+        config["formats"] = selection
+        return config["formats"]
+
+
+def _nom_libre(dossier, nom):
+    """Retourne un chemin disponible en ajoutant un suffixe numerique."""
+    base = Path(nom)
+    candidat = Path(dossier) / base.name
+    compteur = 1
+    while candidat.exists():
+        candidat = Path(dossier) / f"{base.stem}-{compteur}{base.suffix or '.py'}"
+        compteur += 1
+    return candidat
+
+
+def _profil_pour(sections):
+    ensemble = set(sections)
+    if ensemble <= set(PROFILS["minimal"]):
+        return "minimal"
+    if ensemble >= set(PROFILS["detaille"]):
+        return "detaille"
+    return "standard"
+
+
+def _ordonner(config):
+    config["sections"] = [cle for cle in ORDRE if cle in config["sections"]]
+    config["profil"] = _profil_pour(config["sections"])
     return config
 
 
-def _entier(libelle, defaut, minimum, maximum):
-    brut = demander(libelle, str(defaut))
-    try:
-        valeur = int(brut)
-    except ValueError:
-        raise ValueError(f"{libelle} : nombre entier attendu") from None
-    if not minimum <= valeur <= maximum:
-        raise ValueError(f"{libelle} : entre {minimum} et {maximum}")
-    return valeur
+def _options_sensibles(config):
+    actives = []
+    for cle in ("fichiers", "session", "empreinte"):
+        if cle not in config["sections"]:
+            continue
+        if cle == "session":
+            details = [nom for nom, actif in
+                       (("compte", config["session_compte"]),
+                        ("dossier personnel", config["session_home"])) if actif]
+            actives.append("session" + (f" ({', '.join(details)})" if details else ""))
+        elif cle == "empreinte":
+            if config["empreinte"]:
+                actives.append("HWID")
+        else:
+            actives.append(SECTIONS[cle]["titre"])
+    return ", ".join(actives) or "aucune"
 
 
-def _recapitulatif(config):
-    kv("Recapitulatif", [
-        ("Script", config["nom_script"]),
-        ("Rapport", config["nom_rapport"]),
-        ("Profil", config["profil"]),
-        ("Sections", ", ".join(SECTIONS[cle]["titre"] for cle in config["sections"])),
-        ("Champs sensibles", ", ".join(SECTIONS[cle]["titre"] for cle in config["sections"]
-                                        if SECTIONS[cle]["sensible"]) or "aucun"),
-        ("Formats", ", ".join(config["formats"])),
+# --- Apercus --------------------------------------------------------------
+
+def _apercu_court(config):
+    texte = (
+        f"Script    : {config['nom_script']}\n"
+        f"Dossier   : {config['dossier_sortie']}\n"
+        f"Categories: {_libelles(config['sections'])}\n"
+        f"Sensible  : {_options_sensibles(config)}\n"
+        f"Formats   : {', '.join(config['formats'])}\n"
+        "Resultat  : script autonome + rapports horodates"
+    )
+    console.print(Panel(texte, title="Apercu", border_style=C_GOLD))
+
+
+def _apercu_avance(config):
+    _apercu_court(config)
+    kv("Details", [
+        ("Compilation", config.get("compilation", "aucune")),
         ("Sortie", config["mode_sortie"]),
-        ("Dossier", config["dossier_sortie"]),
-        ("Transmission", "locale uniquement (aucun envoi genere)"),
+        ("Limite fichiers", config["limite_fichiers"]),
+        ("Limite logiciels", config["limite_logiciels"]),
     ], C_GOLD)
 
 
-def _choisir_compilation(config):
+# --- Mode rapide ----------------------------------------------------------
+
+def _mode_rapide(config):
+    nom = valider_nom_script(_saisie("Nom du script", config["nom_script"]))
+    dossier = valider_dossier(_saisie("Dossier de sortie", config["dossier_sortie"]))
+    cible = _nom_libre(dossier, nom)
+    if cible.name != Path(nom).name:
+        console.print(f"[yellow]{Path(nom).name} existe deja : {cible.name} sera utilise.[/]")
+    config.update({
+        "nom_script": cible.name,
+        "nom_rapport": f"Rapport {Path(nom).stem}",
+        "dossier_sortie": str(dossier),
+        "sections": list(STANDARD),
+        "formats": ["json", "markdown"],
+        "mode_sortie": "fichier",
+    })
+    _ordonner(config)
+    _apercu_court(config)
+    while True:
+        reponse = _saisie("Generer (oui / configurer / transmettre / annuler)",
+                          "oui").strip().lower()
+        if reponse in {"oui", "o", "y"}:
+            return _generer(config)
+        if reponse in {"transmettre", "t"}:
+            return _generer_puis_transmettre(config)
+        if reponse in {"configurer", "avance", "c"}:
+            return _mode_avance(config)
+        if reponse in {"annuler", "a", "non", "n"}:
+            warn("Generation annulee.")
+            return None
+        warn("Reponse attendue : oui, configurer, transmettre ou annuler.")
+
+
+# --- Mode avance ----------------------------------------------------------
+
+GROUPES = (
+    ("sections", "Sections du rapport", "Basculer les sections une par une."),
+    ("systeme", "Informations systeme", "OS, version, architecture, hote, demarrage."),
+    ("materiel", "Materiel et stockage", "Processeur, memoire, disques, peripheriques."),
+    ("logiciels", "Logiciels et developpement", "Inventaire logiciel et versions d'outils."),
+    ("reseau", "Reseau", "Interfaces, adresses privees, passerelle, DNS."),
+    ("fichiers", "Inventaire de fichiers", "Chemins choisis, extensions, limite, SHA-256."),
+    ("session", "Session et identifiants", "Compte, dossier personnel et HWID."),
+    ("sortie", "Formats et sortie", "JSON, Markdown, HTML, affichage, dossier."),
+    ("compilation", "Compilation", "Generation seule, execution ou executable."),
+    ("transmission", "Transmission", "Envoi manuel d'un rapport JSON existant."),
+)
+
+
+def _inclure(config, cle, libelle):
+    actif = cle in config["sections"]
+    if _oui_non(f"Inclure {libelle} ?", actif):
+        if cle not in config["sections"]:
+            config["sections"].append(cle)
+        return True
+    if cle in config["sections"]:
+        config["sections"].remove(cle)
+    return False
+
+
+def _editer_sections(config):
+    _table_sections(config["sections"])
+    saisie = _saisie("Numeros a basculer ('tout' = standards, Entree = conserver)", "")
+    if not saisie.strip():
+        return
+    if saisie.strip().lower() == "tout":
+        config["sections"] = list(STANDARD)
+        console.print("[dim]Sections standards seules ; options sensibles inchangees.[/]")
+        return
+    for morceau in saisie.replace(",", " ").split():
+        if morceau not in NUMEROS:
+            warn(f"Numero inconnu : {morceau}")
+            continue
+        cle = NUMEROS[morceau]
+        if cle in config["sections"]:
+            config["sections"].remove(cle)
+        else:
+            config["sections"].append(cle)
+
+
+def _editer_systeme(config):
+    _inclure(config, "systeme", "le systeme d'exploitation")
+
+
+def _editer_materiel(config):
+    _inclure(config, "materiel", "le materiel")
+    _inclure(config, "disques", "le stockage et les volumes")
+    _inclure(config, "peripheriques", "les peripheriques")
+
+
+def _editer_logiciels(config):
+    _inclure(config, "logiciels", "l'inventaire des logiciels")
+    _inclure(config, "dev", "l'environnement de developpement")
+    if "logiciels" in config["sections"]:
+        config["limite_logiciels"] = _entier("Limite de logiciels listes",
+                                             config["limite_logiciels"], 1, 2000)
+
+
+def _editer_reseau(config):
+    console.print(Panel(
+        "Inclus : noms d'interfaces, etat, adresses IPv4 privees, adresse MAC,\n"
+        "passerelle et serveurs DNS configures.\n"
+        "Aucune adresse publique n'est recherchee et aucune connexion n'est ouverte.",
+        title="Reseau - contenu", border_style=C_GOLD))
+    _inclure(config, "reseau", "la section reseau")
+
+
+def _editer_fichiers(config):
+    if not _inclure(config, "fichiers", "l'inventaire de fichiers"):
+        return
+    config["fichiers"] = _liste("Fichiers/dossiers a inventorier (';' separateur)",
+                                ";".join(config["fichiers"]))
+    brut = _saisie("Extensions autorisees (ex: .py .txt ; vide = toutes)",
+                   " ".join(config["extensions"]))
+    config["extensions"] = [partie if partie.startswith(".") else f".{partie}"
+                            for partie in brut.split() if partie]
+    config["limite_fichiers"] = _entier("Limite de fichiers analyses",
+                                        config["limite_fichiers"], 1, 5000)
+    config["dossiers_exclus"] = _liste("Dossiers exclus (';' separateur)",
+                                       ";".join(config["dossiers_exclus"]))
+
+
+def _editer_session(config):
+    if _inclure(config, "session", "les informations de session"):
+        config["session_compte"] = _oui_non("Inclure le nom de compte et le domaine ?",
+                                            config["session_compte"])
+        config["session_home"] = _oui_non("Inclure le dossier personnel ?",
+                                          config["session_home"])
+    config["empreinte"] = _inclure(config, "empreinte", "l'empreinte machine (HWID)")
+
+
+def _editer_sortie(config):
+    _choix_formats(config)
+    config["dossier_sortie"] = str(valider_dossier(
+        _saisie("Dossier de sortie", config["dossier_sortie"])))
+    config["mode_sortie"] = _choix_parmi("Mode de sortie (terminal/fichier/les_deux)",
+                                         config["mode_sortie"],
+                                         ("terminal", "fichier", "les_deux"))
+
+
+def _editer_transmission(config):
+    config["transmission"] = _oui_non(
+        "Proposer la transmission manuelle apres generation ?",
+        config.get("transmission", False))
+    if config["transmission"]:
+        console.print("[dim]Le rapport reste ecrit localement ; l'envoi se fait apres "
+                      "apercu, expurgation et confirmation.[/]")
+
+
+def _editer_compilation(config):
     kv("Compilation", [
         ("1", "Generer le fichier Python uniquement"),
         ("2", "Generer puis executer le script"),
         ("3", "Generer puis compiler en executable"),
         ("4", "Generer, tester localement, puis proposer la compilation"),
     ], C_GOLD)
-    choix = demander("Choix", "1").strip()
-    modes = {"1": "aucune", "2": "executer", "3": "compiler", "4": "tester"}
-    if choix not in modes:
-        raise ValueError("choix de compilation invalide (1 a 4)")
-    config["compilation"] = modes[choix]
-    return config
+    choix = _choix_parmi("Choix", "1", ("1", "2", "3", "4"))
+    config["compilation"] = {"1": "aucune", "2": "executer", "3": "compiler",
+                            "4": "tester"}[choix]
+
+
+EDITEURS = {
+    "sections": _editer_sections,
+    "systeme": _editer_systeme,
+    "materiel": _editer_materiel,
+    "logiciels": _editer_logiciels,
+    "reseau": _editer_reseau,
+    "fichiers": _editer_fichiers,
+    "session": _editer_session,
+    "sortie": _editer_sortie,
+    "compilation": _editer_compilation,
+    "transmission": _editer_transmission,
+}
+
+
+def _mode_avance(config):
+    while True:
+        console.print("[bold]Categories a configurer :[/]")
+        for numero, (cle, titre, description) in enumerate(GROUPES, 1):
+            console.print(f"  [bold]{numero}.[/] {titre} — [dim]{description}[/]")
+        saisie = _saisie("Categorie a modifier (Entree = terminer)", "").strip()
+        if not saisie:
+            break
+        if not saisie.isdigit() or not 1 <= int(saisie) <= len(GROUPES):
+            warn(f"Choix attendu entre 1 et {len(GROUPES)}.")
+            continue
+        _ordonner(config)
+        EDITEURS[GROUPES[int(saisie) - 1][0]](config)
+        _ordonner(config)
+
+    _apercu_avance(config)
+    while True:
+        reponse = _saisie("Generer (oui / retour / annuler)", "oui").strip().lower()
+        if reponse in {"oui", "o", "y"}:
+            if config.get("transmission"):
+                return _generer_puis_transmettre(config)
+            return _generer(config)
+        if reponse in {"retour", "r"}:
+            return _mode_avance(config)
+        if reponse in {"annuler", "a", "non", "n"}:
+            warn("Generation annulee.")
+            return None
+        warn("Reponse attendue : oui, retour ou annuler.")
+
+
+# --- Generation et verification ------------------------------------------
+
+def verifier_generation(chemin, config):
+    """Verifie existence, contenu, syntaxe et coherence des collecteurs."""
+    chemin = Path(chemin)
+    erreurs = []
+    if not chemin.is_file():
+        return {"ok": False, "chemin": str(chemin.resolve()), "erreurs": ["fichier absent"]}
+    contenu = chemin.read_text(encoding="utf-8")
+    if not contenu.strip():
+        erreurs.append("fichier vide")
+    try:
+        compile(contenu, str(chemin), "exec")
+    except SyntaxError as exc:
+        erreurs.append(f"syntaxe invalide ligne {exc.lineno} : {exc.msg}")
+    for cle in config["sections"]:
+        nom = collectors.COLLECTEURS[cle][1].__name__
+        if f"def {nom}(" not in contenu:
+            erreurs.append(f"collecteur manquant : {nom}")
+    for cle in OPTIONNELLES:
+        if cle in config["sections"]:
+            continue
+        nom = collectors.COLLECTEURS[cle][1].__name__
+        if f"def {nom}(" in contenu:
+            erreurs.append(f"collecteur desactive present : {nom}")
+    return {"ok": not erreurs, "chemin": str(chemin.resolve()), "erreurs": erreurs}
+
+
+def _generer(config):
+    _ordonner(config)
+    try:
+        source = construire_script(config)
+    except ValueError as exc:
+        warn(f"Generation impossible : {exc}")
+        return None
+    nom = Path(config["nom_script"]).expanduser()
+    chemin = nom if nom.parent not in {Path("."), Path("")} else \
+        Path(config["dossier_sortie"]).expanduser() / nom.name
+    if chemin.exists():
+        if not _oui_non(f"{chemin} existe deja. Ecraser ?", False):
+            alternatif = _nom_libre(chemin.parent, chemin.name)
+            console.print(f"[yellow]Nom alternatif retenu : {alternatif}[/]")
+            chemin = alternatif
+            config["nom_script"] = str(alternatif)
+    try:
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        chemin.write_text(source, encoding="utf-8")
+    except OSError as exc:
+        warn(f"Ecriture impossible : {exc}")
+        return None
+
+    resultat = verifier_generation(chemin, config)
+    if not resultat["ok"]:
+        for erreur in resultat["erreurs"]:
+            warn(erreur)
+        warn(f"Script incomplet : {resultat['chemin']}")
+        return resultat
+
+    kv("Script genere", [
+        ("Chemin", resultat["chemin"]),
+        ("Sections", len(config["sections"])),
+        ("Formats", ", ".join(config["formats"])),
+    ], C_GOLD)
+
+    mode = config.get("compilation", "aucune")
+    if mode in {"executer", "tester"}:
+        _executer_script(chemin.resolve())
+    if mode == "compiler":
+        _compiler_script(chemin.resolve())
+    elif mode == "tester" and _oui_non("Compiler maintenant en executable ?", False):
+        _compiler_script(chemin.resolve())
+    return resultat
+
+
+def _generer_puis_transmettre(config):
+    """Genere le script, produit un rapport local si besoin, puis propose l'envoi."""
+    if config.get("compilation", "aucune") == "aucune":
+        config["compilation"] = "executer"
+    resultat = _generer(config)
+    if resultat and resultat.get("ok"):
+        transmission.transmettre_rapport(config["dossier_sortie"])
+    return resultat
 
 
 def _executer_script(chemin):
@@ -525,15 +831,15 @@ def _compiler_script(chemin):
         warn("PyInstaller n'est pas installe.")
         console.print(f"Installation proposee : {build.commande_installation()}",
                       markup=False, style="shell.text")
-        if not Confirm.ask("Installer PyInstaller maintenant (via pip) ?", default=False):
+        if not _oui_non("Installer PyInstaller maintenant (via pip) ?", False):
             return None
         installation = subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"],
                                       check=False)
         if installation.returncode != 0:
             warn("Installation impossible : compilation abandonnee.")
             return None
-    nom = demander("Nom de l'executable", Path(chemin).stem)
-    dossier = demander("Dossier de destination", str(Path(chemin).parent / "dist"))
+    nom = _saisie("Nom de l'executable", Path(chemin).stem)
+    dossier = _saisie("Dossier de destination", str(Path(chemin).parent / "dist"))
     try:
         resultat = build.compiler(chemin, nom=nom, dossier=dossier)
     except ValueError as exc:
@@ -548,94 +854,9 @@ def _compiler_script(chemin):
     return resultat
 
 
-def _finaliser(config):
-    try:
-        source = construire_script(config)
-    except ValueError as exc:
-        warn(str(exc))
-        return
-    chemin = Path(config["nom_script"]).expanduser()
-    if chemin.exists() and not Confirm.ask(f"{chemin} existe deja. Ecraser ?", default=False):
-        warn("Generation annulee.")
-        return
-    try:
-        chemin.parent.mkdir(parents=True, exist_ok=True)
-        chemin.write_text(source, encoding="utf-8")
-    except OSError as exc:
-        warn(f"Impossible d'ecrire le script : {exc}")
-        return
-    kv("Script genere", [
-        ("Fichier", str(chemin.resolve())),
-        ("Lignes", len(source.splitlines())),
-        ("Sections", len(config["sections"])),
-        ("Formats", ", ".join(config["formats"])),
-        ("Reseau", "aucun envoi genere"),
-    ], C_GOLD)
-
-    mode = config.get("compilation", "aucune")
-    if mode in {"executer", "tester"}:
-        _executer_script(chemin.resolve())
-    if mode == "compiler":
-        _compiler_script(chemin.resolve())
-    elif mode == "tester" and Confirm.ask("Compiler maintenant en executable ?", default=False):
-        _compiler_script(chemin.resolve())
-    ok("Termine.")
-
-
 def generer_script():
-    """Parcours complet : configuration, selection, apercu, generation."""
+    """Point d'entree : mode rapide par defaut, mode avance accessible."""
     titre("GENERATEUR DE RAPPORTS SYSTEME", C_GOLD)
-    console.print("[dim]Scripts autonomes, format JSON/Markdown/HTML. "
+    console.print("[dim]Mode rapide : deux questions suffisent. "
                   "Aucune transmission reseau n'est generee.[/]\n")
-    config = config_par_defaut()
-    etapes = {
-        "a": ("Informations generales", _etape_a),
-        "b": ("Sections de donnees", _etape_b),
-        "c": ("Options du rapport", _etape_c),
-    }
-    ordre = ["a", "b", "c"]
-    index = 0
-    while index < len(ordre):
-        cle = ordre[index]
-        libelle, fonction = etapes[cle]
-        console.rule(f"[bold]{libelle}[/]")
-        try:
-            fonction(config)
-        except ValueError as exc:
-            warn(str(exc))
-            continue
-        index += 1
-
-    while True:
-        console.rule("[bold]Apercu[/]")
-        _recapitulatif(config)
-        try:
-            _choisir_compilation(config)
-        except ValueError as exc:
-            warn(str(exc))
-            continue
-        choix = demander("Generer maintenant (oui / sections / options / annuler)",
-                         "oui").strip().lower()
-        if choix in {"oui", "o", "y", ""}:
-            _finaliser(config)
-            return
-        if choix in {"sections", "s"}:
-            index = 1
-            while index < len(ordre):
-                cle = ordre[index]
-                console.rule(f"[bold]{etapes[cle][0]}[/]")
-                try:
-                    etapes[cle][1](config)
-                except ValueError as exc:
-                    warn(str(exc))
-                    continue
-                index += 1
-            continue
-        if choix in {"options", "c"}:
-            try:
-                _etape_c(config)
-            except ValueError as exc:
-                warn(str(exc))
-            continue
-        warn("Generation annulee.")
-        return
+    return _mode_rapide(config_par_defaut())

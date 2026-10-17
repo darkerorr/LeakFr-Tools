@@ -201,29 +201,271 @@ def test_collectors_handle_limits_missing_data_and_errors(tmp_path):
     assert module.collecter_systeme()["donnees"]["python"]
 
 
-def test_builder_validates_names_paths_and_sections(tmp_path, monkeypatch):
-    module, config = _config_generateur(tmp_path)
+def test_saisies_centralisees_appliquent_les_defauts(monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    monkeypatch.setattr(module, "demander",
+                        lambda label, defaut=None: defaut if defaut is not None else "")
+    assert module._saisie("Nom", "rapport-machine.py") == "rapport-machine.py"
+    assert module._liste("Liste", " ; ; ") == []
+    assert module._liste("Liste", "a ; b") == ["a", "b"]
+    assert module._entier("Limite", 5, 1, 10) == 5
+
+
+def test_oui_non_et_entier_repromptent_les_reponses_invalides(monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    reponses = iter(["peut-etre", "OUI", "non"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
+    assert module._oui_non("Continuer ?", False) is True
+    assert module._oui_non("Continuer ?", True) is False
+
+    reponses = iter(["abc", "0", "7"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
+    assert module._entier("Limite", 5, 1, 10) == 7
+
+
+def test_noms_et_chemins_valides_y_compris_espaces(tmp_path):
+    module = importlib.import_module("modules.generators.script_builder")
     for mauvais in ("", "a/b.py", "a:b.py", "x?.py", ".."):
         with pytest.raises(ValueError):
             module.valider_nom_script(mauvais)
+    assert module.valider_nom_script("mon rapport") == "mon rapport.py"
     assert module.valider_nom_script("rapport") == "rapport.py"
-    assert module.valider_dossier(str(tmp_path / "a" / "b")).is_dir()
+    assert module.valider_dossier(str(tmp_path / "Mes rapports" / "2026")).is_dir()
     with pytest.raises(ValueError):
         module.valider_dossier("")
-    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: "zero")
-    with pytest.raises(ValueError):
-        module._entier("limite", "zero", 1, 10)
 
-    reponses = iter(["99", "1"])
+
+def test_tout_selectionne_les_standards_sans_les_options_sensibles(monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    config["sections"] = ["session", "empreinte"]
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: "tout")
+    module._editer_sections(config)
+    assert set(config["sections"]) == set(module.STANDARD)
+    assert not set(module.OPTIONNELLES) & set(config["sections"])
+
+    config["sections"] = ["materiel"]
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: "1 3")
+    module._editer_sections(config)
+    assert config["sections"] == ["materiel", "systeme", "disques"]
+    module._editer_sections(config)
+    assert config["sections"] == ["materiel"]
+
+
+def test_options_sensibles_desactivees_par_defaut():
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    assert set(config["sections"]) == set(module.STANDARD)
+    for cle in ("session", "fichiers", "empreinte"):
+        assert cle not in config["sections"]
+    assert config["empreinte"] is False
+    assert config["session_compte"] is False
+
+
+def test_mode_rapide_evite_l_ecrasement_et_utilise_les_defauts(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "rapports").mkdir()
+    existant = tmp_path / "rapports" / "rapport-machine.py"
+    existant.write_text("ancien", encoding="utf-8")
+
+    reponses = iter(["rapport-machine.py", "rapports", "oui"])
     monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
-    monkeypatch.setattr(module.Confirm, "ask", lambda *_args, **_kwargs: True)
-    module._etape_b(config)
+    resultat = module._mode_rapide(module.config_par_defaut())
+
+    assert resultat["ok"] is True
+    assert Path(resultat["chemin"]).name == "rapport-machine-1.py"
+    assert existant.read_text(encoding="utf-8") == "ancien"
+
+
+def test_generation_refuse_ecrasement_et_choisit_un_nom_libre(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    config.update({"nom_script": str(tmp_path / "test.py"),
+                   "dossier_sortie": str(tmp_path / "out")})
+    original = tmp_path / "test.py"
+    original.write_text("# intact", encoding="utf-8")
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: "non")
+    resultat = module._generer(config)
+    assert resultat["ok"] is True
+    assert Path(resultat["chemin"]).name == "test-1.py"
+    assert original.read_text(encoding="utf-8") == "# intact"
+
+
+def test_verification_detecte_fichier_vide_syntaxe_et_collecteurs(tmp_path):
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    config["sections"] = ["systeme", "disques"]
+
+    vide = tmp_path / "vide.py"
+    vide.write_text("", encoding="utf-8")
+    assert module.verifier_generation(vide, config)["ok"] is False
+
+    casse = tmp_path / "casse.py"
+    casse.write_text("def x(:\n", encoding="utf-8")
+    resultat = module.verifier_generation(casse, config)
+    assert any("syntaxe" in erreur for erreur in resultat["erreurs"])
+
+    bon = tmp_path / "bon.py"
+    bon.write_text(module.construire_script(config), encoding="utf-8")
+    assert module.verifier_generation(bon, config)["ok"] is True
+
+    bon.write_text(bon.read_text(encoding="utf-8")
+                   + "\ndef collecter_session(a=1, b=2):\n    pass\n", encoding="utf-8")
+    resultat = module.verifier_generation(bon, config)
+    assert any("desactive" in erreur for erreur in resultat["erreurs"])
+
+
+def test_mode_avance_retour_et_annulation(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    config["sections"] = ["systeme"]
+    reponses = iter(["1", "", "", "non"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
+    assert module._mode_avance(config) is None
     assert config["sections"] == ["systeme"]
 
-    reponses_a = iter(["r.py", "Rapport", "json", str(tmp_path / "out2"), "inconnu"])
-    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses_a))
-    with pytest.raises(ValueError):
-        module._etape_a(module.config_par_defaut())
+
+def test_parcours_complet_mode_rapide_dans_un_terminal_simule(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    monkeypatch.chdir(tmp_path)
+    reponses = iter(["e2e.py", "sorties", "oui"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
+    module.generer_script()
+
+    script = tmp_path / "sorties" / "e2e.py"
+    assert script.is_file() and script.stat().st_size > 0
+    contenu = script.read_text(encoding="utf-8")
+    compile(contenu, str(script), "exec")
+    assert "collecter_session" not in contenu
+    assert "collecter_empreinte_machine" not in contenu
+
+    run = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
+    assert run.returncode == 0, run.stderr
+    assert list((tmp_path / "sorties").glob("*.json"))
+    assert list((tmp_path / "sorties").glob("*.md"))
+
+
+def _rapport_synthetique():
+    return {
+        "schema": "leakfr.system-report.v1",
+        "id": "11111111-1111-1111-1111-111111111111",
+        "nom": "Rapport test",
+        "genere_le": "2026-10-17T12:00:00+02:00",
+        "profil": "standard",
+        "plateforme": "Linux",
+        "synthese": {"sections_total": 3, "ok": 3, "partiel": 0, "indisponible": 0,
+                     "erreur": 0, "statut": "ok", "duree_ms": 12.5},
+        "sections": {
+            "systeme": {"titre": "Systeme d'exploitation", "statut": "ok",
+                        "donnees": {"hote": "lab"}, "erreurs": []},
+            "empreinte": {"titre": "Empreinte machine (HWID)", "statut": "ok",
+                          "donnees": {"hwid": "AAAA-BBBB"}, "erreurs": []},
+            "session": {"titre": "Session et compte", "statut": "ok",
+                        "donnees": {"utilisateur": "moi"}, "erreurs": []},
+        },
+    }
+
+
+def test_transmission_liste_et_retire_les_sections_sensibles(tmp_path):
+    module = importlib.import_module("modules.generators.transmission")
+    chemin = tmp_path / "rapport.json"
+    chemin.write_text(json.dumps(_rapport_synthetique()), encoding="utf-8")
+
+    assert module.lister_rapports(tmp_path) == [chemin]
+    rapport = module.charger_rapport(chemin)
+    assert module.sections_sensibles_presentes(rapport) == ["empreinte", "session"]
+
+    reduit = module.retirer_sections(rapport, ["empreinte", "session"])
+    assert list(reduit["sections"]) == ["systeme"]
+    assert reduit["synthese"]["sections_total"] == 1
+    assert "empreinte" in reduit["synthese"]["sections_exclues"]
+    assert "empreinte" in rapport["sections"]
+
+
+def test_transmission_envoie_apres_confirmation_et_expurge(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.transmission")
+    chemin = tmp_path / "rapport.json"
+    contenu_initial = json.dumps(_rapport_synthetique())
+    chemin.write_text(contenu_initial, encoding="utf-8")
+    recu = {}
+
+    class Recepteur(BaseHTTPRequestHandler):
+        def do_POST(self):
+            longueur = int(self.headers.get("Content-Length", "0"))
+            recu["corps"] = json.loads(self.rfile.read(longueur))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+
+        def log_message(self, *_args):
+            pass
+
+    serveur = ThreadingHTTPServer(("127.0.0.1", 0), Recepteur)
+    threading.Thread(target=serveur.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{serveur.server_port}/hook"
+        reponses = iter(["1", "oui", url, "", "oui"])
+        monkeypatch.setattr(module, "demander", lambda *_a, **_k: next(reponses))
+        resultat = module.transmettre_rapport(tmp_path)
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+
+    assert resultat["ok"] is True and resultat["statut"] == 200
+    assert set(recu["corps"]["sections"]) == {"systeme"}
+    assert "hwid" not in json.dumps(recu["corps"])
+    assert chemin.read_text(encoding="utf-8") == contenu_initial
+
+
+def test_transmission_sans_confirmation_n_envoie_rien(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.transmission")
+    (tmp_path / "rapport.json").write_text(json.dumps(_rapport_synthetique()), encoding="utf-8")
+    appels = []
+    monkeypatch.setattr(module.webhook_lab, "envoyer_payload",
+                        lambda *_a, **_k: appels.append(1))
+    reponses = iter(["1", "oui", "http://127.0.0.1:9/hook", "", "non"])
+    monkeypatch.setattr(module, "demander", lambda *_a, **_k: next(reponses))
+    assert module.transmettre_rapport(tmp_path) is None
+    assert appels == []
+
+
+def test_transmission_valide_l_url_avant_envoi(monkeypatch):
+    module = importlib.import_module("modules.generators.transmission")
+    reponses = iter(["ftp://exemple.tld/hook", "https://exemple.tld/hook"])
+    monkeypatch.setattr(module, "demander", lambda *_a, **_k: next(reponses))
+    assert module._demander_url() == "https://exemple.tld/hook"
+
+
+def test_mode_rapide_propose_la_transmission(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    monkeypatch.chdir(tmp_path)
+    appels = []
+    monkeypatch.setattr(module.transmission, "transmettre_rapport",
+                        lambda dossier: appels.append(dossier))
+    monkeypatch.setattr(module, "_generer", lambda config: {"ok": True, "chemin": "x"})
+    reponses = iter(["r.py", "out", "transmettre"])
+    monkeypatch.setattr(module, "demander", lambda *_a, **_k: next(reponses))
+    resultat = module._mode_rapide(module.config_par_defaut())
+    assert resultat["ok"] is True
+    assert appels == ["out"]
+
+
+def test_mode_avance_active_et_declenche_la_transmission(monkeypatch):
+    module = importlib.import_module("modules.generators.script_builder")
+    config = module.config_par_defaut()
+    monkeypatch.setattr(module, "demander", lambda *_a, **_k: "oui")
+    module._editer_transmission(config)
+    assert config["transmission"] is True
+
+    appels = []
+    monkeypatch.setattr(module, "_generer_puis_transmettre",
+                        lambda cfg: appels.append(cfg["nom_script"]) or {"ok": True})
+    reponses = iter(["", "oui"])
+    monkeypatch.setattr(module, "demander", lambda *_a, **_k: next(reponses))
+    resultat = module._mode_avance(config)
+    assert resultat["ok"] is True
+    assert appels
 
 
 def test_compilation_integrates_pyinstaller_and_checks_artifact(tmp_path, monkeypatch):
