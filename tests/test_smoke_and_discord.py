@@ -115,39 +115,158 @@ def test_system_audit_is_local_deterministic_and_exposes_no_secrets(monkeypatch)
     assert module.calculer_hwid({"machine-id": "abc"}) != module.calculer_hwid({"machine-id": "def"})
 
 
-def test_script_generator_produces_standalone_local_script(tmp_path, monkeypatch):
+def _config_generateur(tmp_path, **surcharges):
     module = importlib.import_module("modules.generators.script_builder")
-    source = module.construire_script({"systeme", "hashes", "fichier", "json"})
-    assert "webhook" not in source.lower()
-    assert "socket" not in source
-    assert "urllib" not in source
+    config = module.config_par_defaut()
+    config.update({
+        "nom_script": str(tmp_path / "rapport.py"),
+        "dossier_sortie": str(tmp_path / "out"),
+        "sections": ["systeme", "disques"],
+        "formats": ["json", "markdown", "html"],
+        "mode_sortie": "fichier",
+    })
+    config.update(surcharges)
+    return module, config
+
+
+def test_script_generator_profiles_and_section_selection(tmp_path):
+    module, config = _config_generateur(tmp_path)
+    assert set(module.PROFILS) == {"minimal", "standard", "detaille"}
+    assert set(module.PROFILS["minimal"]) < set(module.PROFILS["detaille"])
+    assert "empreinte" not in module.PROFILS["detaille"]
+    for profil, attendues in module.PROFILS.items():
+        config["profil"] = profil
+        config["sections"] = list(attendues)
+        source = module.construire_script(config)
+        for cle in attendues:
+            nom = module.collectors.COLLECTEURS[cle][1].__name__
+            assert f"def {nom}()" in source or f"def {nom}(" in source
+        assert "collecter_empreinte_machine" not in source
+    config["sections"] = ["systeme"]
+    sans_reseau = module.construire_script(config)
+    assert "collecter_reseau()" not in sans_reseau
+
+
+def test_script_generator_exports_three_formats_without_network(tmp_path):
+    module, config = _config_generateur(tmp_path)
     script = tmp_path / "rapport.py"
+    source = module.construire_script(config)
+    assert "webhook" not in source.lower()
+    assert "urllib" not in source and "requests" not in source and "urlopen" not in source
     script.write_text(source, encoding="utf-8")
 
-    run = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=60)
+    run = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
     assert run.returncode == 0, run.stderr
-    assert "HWID" in run.stdout
-    assert (tmp_path / "d").mkdir() is None
-    (tmp_path / "d" / "a.txt").write_text("abc", encoding="utf-8")
+    sortie = tmp_path / "out"
+    produites = sorted(sortie.iterdir())
+    assert [f.suffix for f in produites] == [".html", ".json", ".md"]
 
-    run = subprocess.run([sys.executable, str(script), "hash", str(tmp_path / "d")],
-                         capture_output=True, text=True, timeout=60)
-    assert run.returncode == 0, run.stderr
-    assert "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" in run.stdout
+    rapport = json.loads(next(f for f in produites if f.suffix == ".json").read_text(encoding="utf-8"))
+    assert rapport["schema"] == "leakfr.system-report.v1"
+    assert set(rapport["sections"]) == {"systeme", "disques"}
+    assert rapport["synthese"]["sections_total"] == 2
+    assert rapport["genere_le"] and rapport["id"]
 
-    run = subprocess.run([sys.executable, str(script), "fichier", str(tmp_path / "d" / "a.txt")],
-                         capture_output=True, text=True, timeout=60)
-    assert run.returncode == 0, run.stderr
-    assert "text/plain" in run.stdout
+    markdown = next(f for f in produites if f.suffix == ".md").read_text(encoding="utf-8")
+    assert "## Sommaire" in markdown and "## Synthese" in markdown
+    assert "## Erreurs et limites" in markdown
+    html = next(f for f in produites if f.suffix == ".html").read_text(encoding="utf-8")
+    assert "<script" not in html.lower()
+    assert "Synthese" in html and "Stockage et volumes" in html
 
-    monkeypatch.chdir(tmp_path)
-    reponses = iter(["1 2", "sortie.py"])
+    subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
+    assert len(list(sortie.iterdir())) == 6
+
+
+def test_collectors_handle_limits_missing_data_and_errors(tmp_path):
+    module = importlib.import_module("modules.generators.runtime.collectors")
+    dossier = tmp_path / "fichiers"
+    dossier.mkdir()
+    for index in range(4):
+        (dossier / f"f{index}.txt").write_text("abc", encoding="utf-8")
+    limite = module.collecter_fichiers([str(dossier)], [".txt"], limite=2, empreinte=True)
+    assert len(limite["donnees"]["fichiers"]) == 2
+    assert limite["statut"] == "partiel"
+    assert limite["donnees"]["fichiers"][0]["sha256"]
+
+    absent = module.collecter_fichiers([str(tmp_path / "inconnu")], None, limite=5)
+    assert absent["statut"] == "indisponible"
+
+    (tmp_path / "casse.json").write_text("{invalide", encoding="utf-8")
+    historique = module.collecter_historique(str(tmp_path), limite=5)
+    assert historique["erreurs"]
+    assert historique["statut"] in {"partiel", "indisponible"}
+
+    assert module.collecter_disques()["donnees"]["volumes"]
+    assert module.collecter_systeme()["donnees"]["python"]
+
+
+def test_builder_validates_names_paths_and_sections(tmp_path, monkeypatch):
+    module, config = _config_generateur(tmp_path)
+    for mauvais in ("", "a/b.py", "a:b.py", "x?.py", ".."):
+        with pytest.raises(ValueError):
+            module.valider_nom_script(mauvais)
+    assert module.valider_nom_script("rapport") == "rapport.py"
+    assert module.valider_dossier(str(tmp_path / "a" / "b")).is_dir()
+    with pytest.raises(ValueError):
+        module.valider_dossier("")
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: "zero")
+    with pytest.raises(ValueError):
+        module._entier("limite", "zero", 1, 10)
+
+    reponses = iter(["99", "1"])
     monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses))
-    monkeypatch.setattr(module.Confirm, "ask", lambda *_args, **_kwargs: False)
-    module.generer_script()
-    genere = tmp_path / "sortie.py"
-    assert genere.is_file()
-    assert genere.read_text(encoding="utf-8") == module.construire_script({"systeme", "hashes"})
+    monkeypatch.setattr(module.Confirm, "ask", lambda *_args, **_kwargs: True)
+    module._etape_b(config)
+    assert config["sections"] == ["systeme"]
+
+    reponses_a = iter(["r.py", "Rapport", "json", str(tmp_path / "out2"), "inconnu"])
+    monkeypatch.setattr(module, "demander", lambda *_args, **_kwargs: next(reponses_a))
+    with pytest.raises(ValueError):
+        module._etape_a(module.config_par_defaut())
+
+
+def test_compilation_integrates_pyinstaller_and_checks_artifact(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.generators.build")
+    script = tmp_path / "rapport.py"
+    script.write_text("print('ok')", encoding="utf-8")
+
+    monkeypatch.setattr(module, "executable_pyinstaller", lambda: None)
+    absent = module.compiler(script)
+    assert absent["ok"] is False and "pip install" in absent["erreur"]
+    with pytest.raises(ValueError):
+        module.valider_nom_executable("a/b")
+
+    monkeypatch.setattr(module, "executable_pyinstaller", lambda: "pyinstaller")
+
+    class Resultat:
+        returncode = 0
+        stdout = "Building EXE"
+        stderr = ""
+
+    def runner(arguments, **_kwargs):
+        dist = Path(arguments[arguments.index("--distpath") + 1])
+        dist.mkdir(parents=True, exist_ok=True)
+        (dist / "rapport").write_text("binaire", encoding="utf-8")
+        return Resultat()
+
+    resultat = module.compiler(script, nom="rapport", dossier=str(tmp_path / "dist"), runner=runner)
+    assert resultat["ok"] is True
+    assert Path(resultat["chemin"]).is_file()
+    assert "--onefile" in module.construire_arguments(script, "rapport", tmp_path / "dist")
+
+    vide = module.compiler(script, nom="rapport", dossier=str(tmp_path / "vide"),
+                           runner=lambda *_args, **_kwargs: Resultat())
+    assert vide["ok"] is False
+    assert "sans produire" in vide["erreur"]
+
+    class Echec(Resultat):
+        returncode = 2
+        stderr = "boom"
+
+    rate = module.compiler(script, nom="rapport", dossier=str(tmp_path / "echec"),
+                           runner=lambda *_args, **_kwargs: Echec())
+    assert rate["ok"] is False and rate["code"] == 2
 
 
 def test_webhook_lab_posts_synthetic_payload_to_local_server():

@@ -445,7 +445,7 @@ CATALOGUE = [
         ("Audit de la machine", "HWID et inventaire local, sans reseau", audit_systeme),
     ]),
     ("GENERATEURS", C_GOLD, [
-        ("Generateur de scripts", "Scripts Python locaux autonomes, sans reseau", generer_script),
+        ("Generateur de scripts", "Rapports systeme configurables, JSON/MD/HTML", generer_script),
     ]),
     ("ASTRONOMIE", C_ASTRO, [
         ("ISS en direct", "Position + equipage", iss),
@@ -672,7 +672,7 @@ MOTS_CLES_RECHERCHE = {
     "Generateur wordlist": "dictionnaire mutations jeu de données",
     "Calculateur CIDR": "subnet masque réseau ip",
     "Corpus cas limites HTTP": "http protocol parser fuzzing edge cases corpus fixtures",
-    "Generateur de scripts": "script python autonome pyinstaller executable hwid rapport machine modele",
+    "Generateur de scripts": "script python autonome pyinstaller executable hwid rapport machine json markdown html systeme",
     "Audit de la machine": "hwid machine identifiant systeme inventaire hostname",
     "Dossiers & rapports": "case investigation notes sources dossier",
 }

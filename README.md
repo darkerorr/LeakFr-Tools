@@ -53,7 +53,7 @@ La recherche globale indexe le nom, la description, la catégorie et des alias f
 - **Réseau & laboratoire** : connectivité, protocoles et tests actifs réservés aux cibles autorisées.
 - **Discord** : données publiques, bots autorisés et webhooks.
 - **Utilitaires** : hashes, encodage, conversions, dates, corpus synthétiques et audit local de la machine.
-- **Générateurs** : scripts Python autonomes (rapport système, inventaire, métadonnées), sans réseau.
+- **Générateurs** : rapports système configurables, exports JSON/Markdown/HTML, compilation PyInstaller intégrée, sans transmission réseau.
 - **Dossiers & rapports** : investigations locales, journal et exports JSON.
 - **Astronomie** : ISS, APOD, astéroïdes, planètes et conversions spatiales.
 
