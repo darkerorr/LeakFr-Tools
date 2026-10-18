@@ -1,4 +1,4 @@
-"""Server Cloner : export, simulation et recreation de structure Discord."""
+"""Server Cloner : export, apercu puis recreation reelle de structure Discord."""
 from modules.discord.cloner.executor import executer_plan
 from modules.discord.cloner.export import exporter_structure, ecrire_rapport
 from modules.discord.cloner.manifest import (

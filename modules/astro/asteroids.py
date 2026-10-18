@@ -2,17 +2,21 @@ from datetime import datetime, timezone
 import requests
 from rich.markup import escape
 from core.common import titre, bad, warn, attente, afficher_pagine, C_ASTRO
+from modules.astro.nasa import avertir_si_publique, params_nasa
 
 def asteroides():
     jour = datetime.now(timezone.utc).date().isoformat()
     titre(f"ASTÉROÏDES PROCHES DE LA TERRE : {jour}", C_ASTRO)
+    params, source_cle = params_nasa({"start_date": jour, "end_date": jour})
+    if avertir_si_publique(source_cle):
+        warn(f"Requête réelle avec la {source_cle}. Ajoute ta clé dans "
+             "Paramètres > Clé API NASA (ou NASA_API_KEY) pour lever la limite.")
     try:
         with attente("Interrogation de la NASA (NeoWs)"):
             r = requests.get("https://api.nasa.gov/neo/rest/v1/feed",
-                             params={"start_date": jour, "end_date": jour,
-                                     "api_key": "DEMO_KEY"}, timeout=25)
+                             params=params, timeout=25)
         if r.status_code == 429:
-            warn("Limite de la clé publique DEMO atteinte, réessaie plus tard.")
+            warn(f"Limite de la clé ({source_cle}) atteinte, réessaie plus tard.")
             return
         data = r.json()
     except Exception as e:

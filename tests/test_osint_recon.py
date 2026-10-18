@@ -107,6 +107,16 @@ def test_capture_indisponible_leve_une_erreur_claire():
     assert "indisponible" in str(erreur.value)
 
 
+def test_pseudo_search_couvre_au_moins_soixante_plateformes():
+    from modules.osint.pseudo_search import PLATEFORMES
+
+    assert len(PLATEFORMES) >= 60
+    assert len({nom.casefold() for nom in PLATEFORMES}) == len(PLATEFORMES)
+    assert all(modele.startswith("https://") and "{}" in modele
+               for modele in PLATEFORMES.values())
+    assert len(set(PLATEFORMES.values())) == len(PLATEFORMES)
+
+
 def test_pseudo_search_runs_concurrently_with_mocked_responses(monkeypatch):
     from contextlib import contextmanager
     from types import SimpleNamespace

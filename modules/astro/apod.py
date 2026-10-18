@@ -4,11 +4,15 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Confirm
 from core.common import console, demander, titre, bad, warn, kv, attente, ouvrir_url, BX, C_ASTRO
+from modules.astro.nasa import avertir_si_publique, params_nasa
 
 def apod():
     titre("IMAGE ASTRONOMIQUE DU JOUR (NASA)", C_ASTRO)
     saisie = demander("Date AAAA-MM-JJ (Entrée = aujourd'hui)", defaut="")
-    params = {"api_key": "DEMO_KEY"}
+    params, source_cle = params_nasa()
+    if avertir_si_publique(source_cle):
+        warn(f"Requête réelle avec la {source_cle}. Ajoute ta clé dans "
+             "Paramètres > Clé API NASA (ou NASA_API_KEY) pour lever la limite.")
     if saisie:
         try:
             datetime.strptime(saisie, "%Y-%m-%d")
@@ -24,7 +28,7 @@ def apod():
         bad(f"Erreur : {e}")
         return
     if r.status_code == 429:
-        warn("Limite de la clé publique DEMO atteinte, réessaie plus tard.")
+        warn(f"Limite de la clé ({source_cle}) atteinte, réessaie plus tard.")
         return
     try:
         d = r.json()

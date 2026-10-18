@@ -34,14 +34,15 @@ from rich.table import Table
 from rich.text import Text
 
 # Core & Helpers
+from core.branding import en_tete, logo_final
 from core.common import (
     console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
-    CONN_T, CONN_L, PIPE, ARROW, FULL, EMPTY, OKC,
+    CONN_T, CONN_L, PIPE, ARROW, MODE_TEXTE,
     BANNER, BANNER_SOUS_TITRE, BANNER_TAGLINE,
     C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
     initialiser_theme, obtenir_theme, obtenir_config_ui, titre, pause,
     clear_screen, configurer_affichage, ask_number, est_ecran_etroit, demander,
-    QuitterApplication,
+    largeur_utile, QuitterApplication,
 )
 from core.config import charger, sauvegarder, restaurer_defauts, DEFAUTS, EXPORTS_DIR
 from core.environment import (
@@ -116,6 +117,7 @@ def _ecran_parametres():
             "Couleur du texte shell", "Fond shell", "Largeur du menu",
             "Panneau lateral", "Badges de categories", "Banniere de demarrage",
             "Duree de l'introduction", "Animations", "Timeout reseau",
+            "Cle API NASA",
             "Environnement (affichage)",
             "Mode texte de secours", "Largeur de sortie", "Pagination",
             "Compatibilite des outils", "Restaurer les parametres par defaut",
@@ -135,6 +137,10 @@ def _ecran_parametres():
                   "Instantane (0 s)" if _duree <= 0 else f"{_duree:.1f} s")
         t.add_row("Animations", str(app.get("animations", True)))
         t.add_row("Timeout reseau (s)", str(reseau.get("timeout", 8)))
+        cle_nasa = str((_CONFIG.get("api_keys") or {}).get("nasa_api_key") or "")
+        t.add_row("Cle API NASA", "definie (masquee)" if cle_nasa else
+                  ("NASA_API_KEY (environnement)" if os.environ.get("NASA_API_KEY")
+                   else "cle publique DEMO_KEY"))
         env_configure = str(plateforme.get("environnement") or "auto")
         if env_configure == "auto":
             env_configure = f"Automatique ({libelle_environnement(detecter_environnement()['cle'])})"
@@ -214,6 +220,18 @@ def _ecran_parametres():
                 ok("Timeout mis a jour.")
             else:
                 bad("Valeur invalide (1-120).")
+        elif c == "Cle API NASA":
+            actuelle = str((_CONFIG.get("api_keys") or {}).get("nasa_api_key") or "")
+            saisie_cle = Prompt.ask(
+                "Cle API NASA (vide pour effacer ; NASA_API_KEY reste prioritaire)",
+                default=actuelle, show_default=False).strip()
+            _CONFIG.setdefault("api_keys", {})["nasa_api_key"] = saisie_cle
+            sauvegarder(_CONFIG)
+            if saisie_cle:
+                ok(f"Cle API NASA enregistree localement ({len(saisie_cle)} caracteres, "
+                   "non affichee). Elle sera utilisee au prochain appel NASA.")
+            else:
+                ok("Cle API NASA effacee : retour a la cle publique DEMO_KEY.")
         elif c == "Environnement (affichage)":
             cle = select_environment(_CONFIG)
             plateforme["environnement"] = normaliser_cle(cle)
@@ -412,21 +430,15 @@ def verifications_intro(config):
     Chaque entree porte son resultat : aucun etat positif n'est affiche sans
     controle correspondant, et une valeur indisponible est dite telle.
     """
-    import importlib.util
+    from core.startup_checks import verifier_catalogue, verifier_modules
     from core.theme import nommer_theme
 
     app = (config or {}).get("apparence", {}) or {}
     outils = _outils_du_catalogue()
     noms = [nom for _cat, _couleur, groupes in CATALOGUE for nom, _desc, _fn in groupes]
-    catalogue_ok = (bool(outils) and all(callable(fn) for fn in outils)
-                    and len(set(noms)) == len(noms)
-                    and all(nom in _ROUTE_PAR_NOM for nom in noms))
-    resultats = [{
-        "nom": "Catalogue",
-        "ok": catalogue_ok,
-        "detail": (f"{len(outils)} outils / {len(CATALOGUE)} categories"
-                   if catalogue_ok else "catalogue incomplet"),
-    }]
+    catalogue = verifier_catalogue(outils, noms, CATALOGUE, _ROUTE_PAR_NOM)
+    resultats = [{"nom": "Catalogue", "ok": catalogue.ok,
+                  "detail": catalogue.detail}]
 
     try:
         environnement = libelle_environnement(detecter_environnement()["cle"])
@@ -446,21 +458,9 @@ def verifications_intro(config):
         theme, theme_ok = "indisponible", False
     resultats.append({"nom": "Theme", "ok": theme_ok, "detail": theme})
 
-    modules = sorted({getattr(fn, "__module__", "") for fn in outils} - {""})
-    indisponibles = []
-    for nom_module in modules:
-        try:
-            if importlib.util.find_spec(nom_module) is None:
-                indisponibles.append(nom_module)
-        except (ImportError, ValueError, AttributeError):
-            indisponibles.append(nom_module)
-    modules_ok = bool(modules) and not indisponibles
-    resultats.append({
-        "nom": "Modules",
-        "ok": modules_ok,
-        "detail": (f"{len(modules)} modules importables"
-                   if modules_ok else f"{len(indisponibles)} module(s) indisponible(s)"),
-    })
+    modules = verifier_modules(outils)
+    resultats.append({"nom": "Modules", "ok": modules.ok,
+                      "detail": modules.detail})
     return resultats
 
 
@@ -480,81 +480,51 @@ def resume_banniere(config):
 
 
 def afficher_banniere(config):
-    """Affiche le logo complet (degrade arc-en-ciel) et ses informations."""
+    """Affiche la banniere de secours (logo final + informations reelles)."""
     palette = obtenir_theme()
-    t = time.time()
-    for y, ligne in enumerate(BANNER):
-        console.print(Align.center(texte_arc(ligne, t, y * 4)))
+    console.print(en_tete(
+        largeur=largeur_utile(), palette=palette, info=resume_banniere(config),
+        compact=est_ecran_etroit() or MODE_TEXTE or not UNICODE,
+        unicode=UNICODE, t=time.time()))
     console.print()
-    console.print(Align.center(Text(
-        BANNER_SOUS_TITRE, style=f"bold {palette.get('titres', C_GOLD)}")))
-    console.print(Align.center(Text(
-        BANNER_TAGLINE, style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-    console.print(Align.center(Text(resume_banniere(config), style="dim")))
-    console.print()
+
+
+def _info_menu():
+    """Resume court et bon marche pour l'en-tete des menus."""
+    outils = sum(len(outils) for _cat, _couleur, outils in CATALOGUE)
+    return (f"v2.0  |  {outils} outils  |  {len(CATALOGUE)} categories"
+            f"  |  {platform.system()}")
+
+
+def _afficher_entete_menu():
+    """En-tete LEAKFR commun au menu numerique (meme logo que l'intro)."""
+    palette = obtenir_theme()
+    # Le logo complet ne doit pas repousser les options hors de l'ecran.
+    compact = (est_ecran_etroit() or MODE_TEXTE or not UNICODE
+               or (console.height or 30) < 28)
+    try:
+        console.print(en_tete(
+            largeur=largeur_utile(), palette=palette, info=_info_menu(),
+            compact=compact, unicode=UNICODE and not MODE_TEXTE,
+            t=time.time()))
+        console.print()
+    except Exception:
+        # L'en-tete ne doit jamais empecher le menu de s'afficher.
+        console.print(Text("LEAKFR // TOOLS 2.0", style="bold"))
 
 
 def _animer_intro(config, duree):
-    """Animation de demarrage : revelation des verifications, jauge, logo.
+    """Sequence animee complete (phases A a D) pilotee par de vrais controles.
 
-    Les verifications sont deja effectuees avant l'appel : l'animation ne
-    simule aucun chargement, elle revele progressivement des resultats reels
-    (la jauge n'est qu'un repere visuel de duree).
+    Retourne ``True`` quand l'ecran final a ete affiche ; ``False`` demande a
+    l'appelant de retomber sur la banniere statique.
     """
-    palette = obtenir_theme()
-    verifications = verifications_intro(config)
-    seuils = (0.10, 0.28, 0.46, 0.62, 0.78)[:len(verifications)]
-    largeur_jauge = max(12, min(34, (console.width or 80) - 34))
-    debut = time.monotonic()
-
-    def rendu():
-        ecoule = time.monotonic() - debut
-        progression = 1.0 if duree <= 0 else min(1.0, ecoule / duree)
-        lignes = [Align.center(Text("VERIFICATION DU DEMARRAGE",
-                                   style=f"bold {palette.get('principale', C_OSINT)}")),
-                  Text("")]
-        for seuil, verification in zip(seuils, verifications):
-            revele = progression >= seuil
-            reussi = bool(verification["ok"])
-            ligne = Text()
-            if revele:
-                ligne.append(f"{OKC} " if reussi else "KO ",
-                             style="bold green" if reussi else "bold red")
-            else:
-                ligne.append("\u00b7 ", style="dim")
-            ligne.append(f"{verification['nom']:<14}",
-                         style="bold white" if revele else "dim")
-            ligne.append(verification["detail"], style="dim" if revele else "grey37")
-            lignes.append(Align.center(ligne))
-        lignes.append(Text(""))
-        remplies = int(round(largeur_jauge * progression))
-        jauge = Text()
-        jauge.append(FULL * remplies, style=f"bold {palette.get('secondaire', C_RECON)}")
-        jauge.append(EMPTY * (largeur_jauge - remplies), style="grey30")
-        jauge.append(f"  {int(progression * 100):3d}%", style="bold white")
-        lignes.append(Align.center(jauge))
-        lignes.append(Text(""))
-        revelees = int(len(BANNER) * max(0.0, (progression - 0.55) / 0.4))
-        for y in range(len(BANNER)):
-            if y < revelees:
-                lignes.append(Align.center(texte_arc(BANNER[y], time.time(), y * 4)))
-            else:
-                lignes.append(Text(""))
-        return Group(*lignes)
-
-    with Live(rendu(), console=console, refresh_per_second=15, transient=True) as live:
-        fin = debut + duree
-        while time.monotonic() < fin:
-            live.update(rendu())
-            time.sleep(0.05)
-        # Derniere image a 100 % : le resultat final des verifications est
-        # toujours visible, meme si la derniere frame intermediaire etait a 97 %.
-        live.update(rendu())
-        time.sleep(0.12)
+    from core.startup import executer_sequence
+    return bool(executer_sequence(config, duree))
 
 
 def _intro_ascii(config):
-    """Affiche l'introduction ASCII au demarrage."""
+    """Affiche l'introduction animee ou une version compacte/statique."""
     app = (config or {}).get("apparence", {}) or {}
     if "--no-intro" in sys.argv or not app.get("banniere_demarrage", True):
         return
@@ -563,27 +533,33 @@ def _intro_ascii(config):
     clear_screen()
     if (est_ecran_etroit() or "--text" in sys.argv
             or "--no-color" in sys.argv):
+        # Terminal etroit ou mode texte : en-tete compact, sans Unicode lourd.
         console.print(Align.center(Text(
             "LeakFr-Tools 2.0",
             style=f"bold {palette.get('principale', C_OSINT)}")))
         console.print(Align.center(Text(BANNER_TAGLINE, style="dim")))
+        console.print(Align.center(Text(
+            "LEAKFR // TOOLS 2.0",
+            style=f"dim {palette.get('secondaire', C_RECON)}")))
         console.print()
         return
 
     duree = duree_intro(app)
     # Sans terminal interactif (redirection, pipe, CI) l'animation n'a pas de sens.
     interactif = bool(getattr(sys.stdout, "isatty", lambda: False)())
+    anime = False
     if animations_actives() and UNICODE and duree > 0 and interactif:
         try:
-            _animer_intro(config, duree)
+            anime = _animer_intro(config, duree)
         except KeyboardInterrupt:
             # Ctrl+C pendant l'introduction : sortie propre, pas de trace.
             console.print()
             raise QuitterApplication
         except Exception:
             # Une animation ne doit jamais empecher l'outil de demarrer.
-            pass
-    afficher_banniere(config)
+            anime = False
+    if not anime:
+        afficher_banniere(config)
 
 
 # Catalogue, navigation et moteur de recherche : voir core/catalogue.py.
@@ -890,11 +866,29 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     palette = obtenir_theme()
     haut = console.height or 30
 
-    if UNICODE and haut >= 36:
-        for y, ligne in enumerate(BANNER):
-            parts.append(Align.center(texte_arc(ligne, t, y * 5)))
+    # Meme identite visuelle que l'introduction : logo complet si la hauteur
+    # le permet, sinon bandeau compact pour ne pas pousser les options hors
+    # de l'ecran.
+    largeur_ecran = console.width or 80
+    if UNICODE and haut >= 40 and largeur_ecran >= 60:
+        parts.extend(logo_final(t, palette, UNICODE))
+        parts.append(Align.center(Text(
+            BANNER_SOUS_TITRE,
+            style=f"bold {palette.get('titres', C_GOLD)}")))
+        parts.append(Align.center(Text(
+            BANNER_TAGLINE,
+            style=f"dim {palette.get('texte_secondaire', '#888888')}")))
+    elif UNICODE and haut >= 32 and largeur_ecran >= 60:
+        # Hauteur moyenne : logo conserve, tagline omise pour garder les
+        # options visibles.
+        parts.extend(logo_final(t, palette, UNICODE))
+        parts.append(Align.center(Text(
+            BANNER_SOUS_TITRE,
+            style=f"bold {palette.get('titres', C_GOLD)}")))
     else:
-        parts.append(Align.center(texte_arc(">  O S I N T  &  P E N T E S T   T O O L B O X  <", t, 0)))
+        parts.append(Align.center(en_tete(
+            largeur=min(largeur_utile(), 88), palette=palette,
+            compact=True, unicode=UNICODE)))
 
     # Badges de categories au centre
     badges = Text(justify="center")
@@ -1181,6 +1175,7 @@ def menu_simple():
     """Fallback console conservant le parcours d'origine : catégorie puis outil."""
     categories = [nom for nom, _, _ in CATALOGUE]
     while True:
+        _afficher_entete_menu()
         choix_categorie = selectionner_option(
             "MENU PRINCIPAL", categories + ["Recherche globale", "Dossiers & rapports",
                                              "Historique local", "Parametres", "Quitter"]
@@ -1274,11 +1269,14 @@ def main():
         )
         return demarrer_bot(intervalle=normaliser_intervalle(
             args.bot_interval if args.bot_interval is not None else INTERVALLE_DEFAUT))
+    # L'environnement est choisi avant la scene de demarrage : la sequence se
+    # termine alors directement sur l'ecran final puis le menu, sans panneau
+    # intermediaire qui casserait la transition.
+    _initialiser_environnement(args.env)
     try:
         _intro_ascii(_CONFIG)
     except QuitterApplication:
         return 0
-    _initialiser_environnement(args.env)
     while True:
         try:
             choix = menu_interactif() if INTERACTIF else menu_simple()

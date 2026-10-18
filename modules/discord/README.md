@@ -3,7 +3,7 @@
 Quatre expériences distinctes, complémentaires :
 
 - **Panel Bot** : administration d’un bot que vous contrôlez, via son token Bot et une Gateway `discord.py`.
-- **Server Cloner / Emoji Cloner** : copie de structure et transfert d’emojis entre serveurs autorisés, avec simulation, manifestes et rapports réels.
+- **Server Cloner / Emoji Cloner** : copie de structure et transfert d’emojis entre serveurs autorisés, avec aperçu sans écriture, exécution réelle via l’API, manifestes et rapports réels.
 - **GIF Studio / Profile Studio** : bibliothèque locale de médias et préparation de profil, sans selfbot ni fausse application de compte.
 - **Discord Personal Panel** : profil et serveurs accessibles via OAuth2 officiel, plus des outils locaux utilisables hors ligne.
 
@@ -37,7 +37,7 @@ Aucun token n’est écrit dans `data/` : `local_store.py` et le journal du pane
 | Outil | Fonction | Aperçu |
 |---|---|---|
 | Panel Bot Discord | Dashboard, serveurs, permissions effectives, clonage, communication, salons, rôles, webhooks, modération confirmée et journal local. | ![Panel Bot](../../docs/screenshots/modules/discord/panel-bot-discord.svg) |
-| Server Cloner | Exporte un manifeste, simule puis recrée rôles, catégories, salons et permissions autorisées. | ![Server Cloner](../../docs/screenshots/modules/discord/server-cloner.svg) |
+| Server Cloner | Exporte un manifeste, affiche l’aperçu puis recrée réellement rôles, catégories, salons et permissions autorisées. | ![Server Cloner](../../docs/screenshots/modules/discord/server-cloner.svg) |
 | Emoji Cloner | Télécharge, vérifie et importe des emojis animés/statiques avec manifeste de résultats. | ![Emoji Cloner](../../docs/screenshots/modules/discord/emoji-cloner.svg) |
 | GIF Studio | Bibliothèque locale, doublons SHA-256, conversion et publication Discord distincte. | ![GIF Studio](../../docs/screenshots/modules/discord/gif-studio.svg) |
 | Profile Studio | Avatars, bannières, bios et variantes locales ; application manuelle uniquement. | ![Profile Studio](../../docs/screenshots/modules/discord/profile-studio.svg) |
@@ -81,7 +81,7 @@ Le panel Bot et l’entrée catalogue **Server Cloner** utilisent le même code 
 
 1. Le manifeste est lu depuis l’API officielle : rôles non gérés, catégories, salons textuels/vocaux/annonces/stage/forum/media, sujet, mode lent, bitrate, limite d’utilisateurs, tags de forum et surcharges de permissions.
 2. Le plan compare le manifeste à la destination, applique la stratégie `ignorer` ou `renommer`, permet d’exclure des rôles ou salons précis, mappe `@everyone` vers le serveur cible, associe les rôles existants par nom et bloque les créations au-dessus de la hiérarchie du bot.
-3. Le mode simulation affiche exactement les créations, éléments existants, blocages et surcharges ignorées ; il n’écrit rien.
+3. L’aperçu affiche exactement les créations, éléments existants, blocages et surcharges ignorées ; il n’écrit rien. L’exécution réelle, après deux confirmations, crée les éléments via l’API Discord et écrit un rapport JSON.
 4. L’exécution réelle demande deux confirmations, vérifie `Gérer les salons` et `Gérer les rôles`, crée dans l’ordre rôles → catégories → salons, puis écrit un rapport JSON sous `data/exports/`.
 5. Une erreur partielle, une limite de débit persistante ou une annulation donne un statut `partiel`/`annule` ; l’outil ne prétend jamais que le serveur est entièrement cloné.
 

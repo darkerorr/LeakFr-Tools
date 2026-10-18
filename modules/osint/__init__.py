@@ -1,4 +1,4 @@
-from modules.osint.pseudo_search import recherche_pseudo
+from modules.osint.pseudo_search import PLATEFORMES, recherche_pseudo
 from modules.osint.email_analysis import analyse_email
 from modules.osint.wayback import wayback
 from modules.osint.robots_sitemap import robots_sitemap

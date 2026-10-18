@@ -3,7 +3,8 @@
 Le plan est deterministe : il compare le manifeste source aux salons et
 roles deja presents, applique la strategie de conflit choisie et produit la
 liste exacte des creations, ignorés et blocages. L'executeur consomme ce
-plan ; le mode simulation s'arrete ici.
+plan ; la consultation du plan n'ecrit rien, l'execution reelle le rejoue
+via l'API Discord.
 """
 from dataclasses import dataclass, field
 

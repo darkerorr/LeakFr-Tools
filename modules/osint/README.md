@@ -6,7 +6,7 @@ Outils de recherche passive ou de consultation de sources publiques. Les résult
 
 | Outil | Fonction | Aperçu |
 |---|---|---|
-| Recherche de pseudo | Vérifie des profils publics sur plusieurs plateformes. | ![Recherche de pseudo](../../docs/screenshots/modules/osint/recherche-de-pseudo.svg) |
+| Recherche de pseudo | Vérifie des profils publics sur 91 plateformes, en parallèle (développement, réseaux sociaux, blogs, vidéo/musique, jeux, portfolios, liens et boutiques). | ![Recherche de pseudo](../../docs/screenshots/modules/osint/recherche-de-pseudo.svg) |
 | Analyse d’email | Contrôle le format, les MX et les éléments publics associés. | ![Analyse d’email](../../docs/screenshots/modules/osint/analyse-d-email.svg) |
 | Wayback Machine | Recherche des captures archivées d’une URL. | ![Wayback](../../docs/screenshots/modules/osint/wayback-machine.svg) |
 | Archive Change Watcher | Compare deux captures archivées, affiche ajouts/suppressions et exporte JSON ou Markdown. Une différence d’archive reste une observation historique, pas une preuve. | ![Archive Change Watcher](../../docs/screenshots/modules/osint/archive-change-watcher.svg) |

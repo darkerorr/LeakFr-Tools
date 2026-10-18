@@ -1,9 +1,9 @@
 """Panel interactif du Server Cloner.
 
 Le panel reste volontairement synchrone et explicite : chaque etape est
-montree avant execution, les permissions sont verifiees, le mode simulation
-n'ecrit rien, et un serveur partiellement recree n'est jamais annonce comme
-clone.
+montree avant execution, les permissions sont verifiees, l'apercu n'ecrit
+rien, l'execution reellement confirmee cree les roles et salons via l'API, et
+un serveur partiellement recree n'est jamais annonce comme clone.
 """
 from rich.markup import escape
 from rich.panel import Panel
@@ -96,7 +96,7 @@ def _demander_options():
 
 def _afficher_plan(plan, destination):
     compteur = plan.compter()
-    table = Table(title="Apercu du clonage (aucune ecriture effectuee)",
+    table = Table(title="Apercu du clonage (aucune ecriture effectuee a ce stade)",
                   box=BX, border_style=C_GOLD)
     table.add_column("Element")
     table.add_column("A creer", justify="right")
@@ -142,7 +142,8 @@ def _afficher_plan(plan, destination):
         f"Destination : {escape(str(destination.get('name')))} "
         f"({destination.get('id')})\n"
         "Les membres, messages, webhooks et jetons ne sont jamais copies.\n"
-        "Le mode simulation n'ecrit rien : l'execution demande une confirmation.",
+        "L'apercu n'ecrit rien. L'execution reelle cree les elements via l'API "
+        "Discord apres deux confirmations.",
         title="Limites", border_style="grey50"))
     return compteur
 

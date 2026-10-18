@@ -21,6 +21,11 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 from rich.text import Text
 
+# Identite visuelle commune (logo, en-tetes) : une seule definition.
+from core.branding import (  # noqa: F401  (reexport historique)
+    BANNER, BANNER_HAUTEUR, BANNER_LARGEUR, BANNER_SOUS_TITRE, BANNER_TAGLINE,
+)
+
 class QuitterApplication(Exception):
     """Demande explicite de sortie (commande 00 ou Ctrl-C géré par le menu)."""
 
@@ -294,18 +299,9 @@ def obtenir_config_ui() -> dict:
 
 DISCORD_EPOCH = 1420070400000
 
-# Logo ASCII du projet : six lignes de largeur identique (48 colonnes).
-BANNER = [
-    "██╗     ███████╗ █████╗ ██╗  ██╗███████╗██████╗ ",
-    "██║     ██╔════╝██╔══██╗██║ ██╔╝██╔════╝██╔══██╗",
-    "██║     █████╗  ███████║█████╔╝ █████╗  ██████╔╝",
-    "██║     ██╔══╝  ██╔══██║██╔═██╗ ██╔══╝  ██╔══██╗",
-    "███████╗███████╗██║  ██║██║  ██╗██║     ██║  ██║",
-    "╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝",
-]
-BANNER_LARGEUR = max(len(ligne) for ligne in BANNER)
-BANNER_SOUS_TITRE = "T O O L S   2 . 0"
-BANNER_TAGLINE = "OSINT  |  RECONNAISSANCE  |  CYBER  |  RESEAU  |  DISCORD"
+# Le logo ASCII est defini dans core/branding.py et importe en tete de
+# fichier : l'introduction, le menu interactif et le menu numerique utilisent
+# donc exactement les memes lignes.
 
 def warn_pentest() -> bool:
     console.print(

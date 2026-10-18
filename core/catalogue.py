@@ -13,7 +13,7 @@ from core.common import (
 from core.compat import proteger_outil
 
 from modules.osint import (
-    recherche_pseudo, analyse_email, wayback, robots_sitemap,
+    PLATEFORMES, recherche_pseudo, analyse_email, wayback, robots_sitemap,
     analyse_url, generateur_dorks, info_telephone, recherche_username_urls,
     archive_change_watcher,
 )
@@ -56,7 +56,8 @@ from modules.astro import (
 
 CATALOGUE = [
     ("OSINT", C_OSINT, [
-        ("Recherche de pseudo", "20 plateformes en parallele", recherche_pseudo),
+        ("Recherche de pseudo", f"{len(PLATEFORMES)} plateformes en parallele",
+         recherche_pseudo),
         ("Analyse d'email", "Format, MX, Gravatar", analyse_email),
         ("Wayback Machine", "Archives paginees + export", wayback),
         ("Robots.txt & sitemap", "Fichiers d'exploration du site", robots_sitemap),
@@ -102,21 +103,21 @@ CATALOGUE = [
         ("Table ARP", "IP <-> MAC du reseau local", table_arp),
         ("DNS Brute-force", "Decouverte de sous-domaines", dns_bruteforce),
         ("Directory Bruteforce", "Chemins caches sur serveur web", dir_bruteforce),
-        ("Detection SQLi", "Injection SQL (passif/actif)", sqli_detect),
-        ("Detection XSS", "Cross-Site Scripting reflechi", xss_detect),
-        ("Detection LFI", "Local File Inclusion", lfi_detect),
+        ("Detection SQLi", "Parametres decouverts automatiquement", sqli_detect),
+        ("Detection XSS", "XSS reflechi, cible et params auto", xss_detect),
+        ("Detection LFI", "Local File Inclusion, params auto", lfi_detect),
         ("Detection WAF", "Fingerprint firewall applicatif", waf_detect),
-        ("Brute-force HTTP", "Login form bruteforce", http_bruteforce),
+        ("Brute-force HTTP", "Formulaire de login detecte automatiquement", http_bruteforce),
         ("Generateur wordlist", "Mutations, combos, patterns", wordlist_gen),
         ("Traceroute", "Chemin reseau hop-by-hop", traceroute),
         ("Sondage SNMP", "Community strings SNMP v1/v2", snmp_probe),
         ("Fuzzing headers HTTP", "Injection de headers speciaux", http_header_fuzz),
-        ("Open Redirect", "Test de redirections ouvertes", open_redirect_test),
+        ("Open Redirect", "Redirections ouvertes, params auto", open_redirect_test),
         ("Ports dangereux", "Audit des ports a risque", check_dangerous_ports),
     ]),
     ("DISCORD OSINT", C_DISCORD, [
         ("Panel Bot Discord", "Dashboard Gateway, serveurs, permissions, actions confirmees", bot_panel),
-        ("Server Cloner", "Copier structure, roles, salons et permissions avec simulation", server_cloner),
+        ("Server Cloner", "Copier structure, roles, salons et permissions (apercu puis ecriture reelle)", server_cloner),
         ("Emoji Cloner", "Exporter et importer des emojis accessibles avec manifeste", emoji_cloner),
         ("GIF Studio", "Bibliotheque locale de GIF, conversion et publication Discord", gif_studio),
         ("Profile Studio", "Preparer avatar, banniere, bio et variantes localement", profile_studio),
