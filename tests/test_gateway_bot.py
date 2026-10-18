@@ -28,7 +28,9 @@ class FauxClient:
         self.token = None
         self.reconnect = None
         self.ferme = False
-        self._fin = asyncio.Event()
+        # Cree dans la boucle du thread Gateway : sur Python 3.9 un Event cree
+        # hors boucle reste attache a la boucle du thread appelant.
+        self._fin = None
         self._boucle = None
 
     @property
@@ -43,12 +45,14 @@ class FauxClient:
         self.token = token
         self.reconnect = reconnect
         self._boucle = asyncio.get_running_loop()
+        self._fin = asyncio.Event()
         await self.handlers["on_ready"]()
         await self._fin.wait()
 
     async def close(self):
         self.ferme = True
-        self._fin.set()
+        if self._fin is not None:
+            self._fin.set()
 
     def is_closed(self):
         return self.ferme
@@ -64,6 +68,7 @@ class FauxClientSansReady(FauxClient):
     async def start(self, token, reconnect=True):
         self.token = token
         self._boucle = asyncio.get_running_loop()
+        self._fin = asyncio.Event()
         await self._fin.wait()
 
 

@@ -41,6 +41,7 @@ def analyse_url():
         ok(f"Finale : {r.status_code} → {r.url}")
         titre_html = re.search(r"(?is)<title[^>]*>(.*?)</title>", r.text)
         if titre_html:
-            ok(f"Titre page : {re.sub(r'\s+', ' ', titre_html.group(1)).strip()[:120]}")
+            titre_page = re.sub(r"\s+", " ", titre_html.group(1)).strip()[:120]
+            ok(f"Titre page : {titre_page}")
     except Exception as e:
         warn(f"Fetch impossible : {e}")

@@ -54,8 +54,8 @@ def test_import_refuse_fichier_invalide_et_trop_volumineux(tmp_path, monkeypatch
         library.importer_fichier(png)
 
 
-def test_detection_et_validation_url():
-    png = creer_png(Path("/tmp/leakfr-test.png"))
+def test_detection_et_validation_url(tmp_path):
+    png = creer_png(tmp_path / "leakfr-test.png")  # chemin portable (Windows inclus)
     assert detecter_format(png.read_bytes()) == "png"
     for url in ("file:///etc/passwd", "http://127.0.0.1/a.gif",
                 "http://localhost/a.gif", "http://10.0.0.1/a.gif",

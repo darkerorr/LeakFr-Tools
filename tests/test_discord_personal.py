@@ -95,13 +95,14 @@ def test_revocation_envoie_le_bon_type_de_jeton():
     assert session.appels[1][2]["token_type_hint"] == "refresh_token"
 
 
-def test_configuration_depuis_environnement():
+def test_configuration_depuis_environnement(tmp_path):
+    absent = tmp_path / "absent-leakfr.json"  # chemin portable (Windows inclus)
     config = auth.charger_config(environ={"DISCORD_CLIENT_ID": "123456789012345678",
                                           "DISCORD_CLIENT_SECRET": ""},
-                                 path="/tmp/absent-leakfr.json")
+                                 path=str(absent))
     assert config.client_id == "123456789012345678"
     assert config.client_secret == ""
-    assert auth.charger_config(environ={}, path="/tmp/absent-leakfr.json") is None
+    assert auth.charger_config(environ={}, path=str(absent)) is None
 
 
 def test_api_personnelle_refuse_401_et_respecte_429():

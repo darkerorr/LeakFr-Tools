@@ -67,8 +67,10 @@ Le workflow `.github/workflows/ci.yml` est suivi par Git (`.gitignore` ne l’ex
 `ubuntu-latest`, `windows-latest` et `macos-latest` avec Python 3.9 et 3.12, puis compile, vérifie
 les imports/le catalogue/la compatibilité, l’interface CLI (`--version`, `--help`) et exécute pytest.
 
-- Aucun run de CI n’a pu être consulté depuis cet environnement : seule la présence et la portée du
-  fichier sont vérifiées localement.
+- La partie Linux de la matrice a été rejouée localement dans les conteneurs officiels
+  `python:3.9-slim` et `python:3.12-slim` : compilation et suite de tests vertes sur les deux
+  versions. Aucun run GitHub Actions n’a pu être consulté depuis cet environnement, et
+  Windows/macOS ne sont pas exécutés localement.
 - **Termux/Android n’est pas simulé depuis Linux dans la CI** : un contrôle sur un appareil Android
   réel reste nécessaire pour valider Termux de bout en bout.
 
