@@ -8,9 +8,9 @@ from modules.discord.cloner.manifest import (
 from modules.discord.cloner.panel import menu_clonage_structure, server_cloner
 from modules.discord.cloner.planner import OptionsClonage, construire_plan
 
-__all__ = [
-    "server_cloner", "menu_clonage_structure", "exporter_structure",
+__all__ =[
+    'server_cloner', 'menu_clonage_structure', 'exporter_structure',
     "construire_manifeste", "valider_manifeste", "charger_manifeste",
     "sauvegarder_manifeste", "construire_plan", "OptionsClonage",
-    "executer_plan", "ecrire_rapport",
+    'executer_plan', 'ecrire_rapport',
 ]

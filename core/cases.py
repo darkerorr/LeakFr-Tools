@@ -17,13 +17,10 @@ from pathlib import Path
 from core.config import CASES_DB, HISTORY_FILE, DATA_DIR
 
 
-# ---------------------------------------------------------------------------
-# Base de donnees SQLite
-# ---------------------------------------------------------------------------
 
 def _connect():
     os.makedirs(DATA_DIR, exist_ok=True)
-    conn = sqlite3.connect(CASES_DB, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn =sqlite3.connect(CASES_DB, detect_types=sqlite3.PARSE_DECLTYPES)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -31,7 +28,7 @@ def _connect():
 
 
 def _init_db():
-    conn = _connect()
+    conn=_connect()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS cases (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,23 +85,20 @@ def _init_db():
     conn.close()
 
 
-# ---------------------------------------------------------------------------
-# CRUD Dossiers
-# ---------------------------------------------------------------------------
 
 def lister_cases() -> list:
     """Retourne tous les dossiers tries par date de modification."""
     _init_db()
-    conn = _connect()
-    rows = conn.execute("SELECT * FROM cases ORDER BY updated_at DESC").fetchall()
+    conn =_connect()
+    rows= conn.execute('SELECT * FROM cases ORDER BY updated_at DESC').fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def creer_case(title: str, description: str = "") -> int:
+def creer_case(title: str, description:str= "") -> int:
     """Cree un dossier et retourne son ID."""
     _init_db()
-    now = datetime.now(timezone.utc).isoformat()
+    now =datetime.now(timezone.utc).isoformat()
     conn = _connect()
     cur = conn.execute(
         "INSERT INTO cases (title, description, created_at, updated_at) VALUES (?, ?, ?, ?)",
@@ -117,17 +111,17 @@ def creer_case(title: str, description: str = "") -> int:
     return case_id
 
 
-def obtenir_case(case_id: int):
+def obtenir_case(case_id:int):
     """Retourne un dossier avec ses notes et sources."""
     _init_db()
     conn = _connect()
-    case = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+    case= conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
     if not case:
         conn.close()
         return None
     case = dict(case)
-    case["notes"] = [dict(r) for r in conn.execute("SELECT * FROM notes WHERE case_id=? ORDER BY created_at", (case_id,)).fetchall()]
-    case["sources"] = [dict(r) for r in conn.execute("SELECT * FROM sources WHERE case_id=? ORDER BY collected_at", (case_id,)).fetchall()]
+    case['notes'] =[dict(r) for r in conn.execute('SELECT * FROM notes WHERE case_id=? ORDER BY created_at', (case_id,)).fetchall()]
+    case["sources"]= [dict(r) for r in conn.execute("SELECT * FROM sources WHERE case_id=? ORDER BY collected_at", (case_id,)).fetchall()]
     conn.close()
     return case
 
@@ -135,31 +129,28 @@ def obtenir_case(case_id: int):
 def renommer_case(case_id: int, title: str) -> bool:
     """Renomme un dossier."""
     now = datetime.now(timezone.utc).isoformat()
-    conn = _connect()
+    conn =_connect()
     conn.execute("UPDATE cases SET title=?, updated_at=? WHERE id=?", (title.strip(), now, case_id))
     conn.commit()
     ok = conn.total_changes > 0
     conn.close()
     if ok:
-        _ajouter_historique("renommer_case", {"id": case_id, "title": title})
+        _ajouter_historique('renommer_case', {'id': case_id, 'title':title})
     return ok
 
 
 def supprimer_case(case_id: int) -> bool:
     """Supprime un dossier et tout son contenu."""
-    conn = _connect()
+    conn =_connect()
     conn.execute("DELETE FROM cases WHERE id=?", (case_id,))
     conn.commit()
     ok = conn.total_changes > 0
     conn.close()
     if ok:
-        _ajouter_historique("supprimer_case", {"id": case_id})
+        _ajouter_historique('supprimer_case', {'id': case_id})
     return ok
 
 
-# ---------------------------------------------------------------------------
-# Notes
-# ---------------------------------------------------------------------------
 
 VALID_KINDS = ("observation", "hypothese", "conclusion", "note_libre")
 
@@ -167,11 +158,11 @@ VALID_KINDS = ("observation", "hypothese", "conclusion", "note_libre")
 def ajouter_note(case_id: int, kind: str, content: str) -> int:
     """Ajoute une note a un dossier. kind doit etre dans VALID_KINDS."""
     if kind not in VALID_KINDS:
-        kind = "note_libre"
-    now = datetime.now(timezone.utc).isoformat()
+        kind ="note_libre"
+    now =datetime.now(timezone.utc).isoformat()
     conn = _connect()
-    cur = conn.execute(
-        "INSERT INTO notes (case_id, kind, content, created_at) VALUES (?, ?, ?, ?)",
+    cur= conn.execute(
+        'INSERT INTO notes (case_id, kind, content, created_at) VALUES (?, ?, ?, ?)',
         (case_id, kind, content.strip(), now),
     )
     conn.commit()
@@ -186,44 +177,41 @@ def ajouter_note(case_id: int, kind: str, content: str) -> int:
 
 def modifier_note(note_id: int, content: str) -> bool:
     """Modifie le contenu d'une note."""
-    conn = _connect()
+    conn= _connect()
     conn.execute("UPDATE notes SET content=? WHERE id=?", (content.strip(), note_id))
     conn.commit()
-    ok = conn.total_changes > 0
+    ok=conn.total_changes > 0
     conn.close()
     return ok
 
 
-def supprimer_note(note_id: int) -> bool:
+def supprimer_note(note_id:int) -> bool:
     """Supprime une note."""
-    conn = _connect()
+    conn= _connect()
     conn.execute("DELETE FROM notes WHERE id=?", (note_id,))
     conn.commit()
-    ok = conn.total_changes > 0
+    ok= conn.total_changes > 0
     conn.close()
     return ok
 
 
-# ---------------------------------------------------------------------------
-# Sources
-# ---------------------------------------------------------------------------
 
-def ajouter_source(case_id: int, data_type: str = "", value: str = "",
+def ajouter_source(case_id: int, data_type: str ="", value: str = "",
                    tool_name: str = "", source_url: str = "",
-                   errors: str = "", verification: str = "non_verifie",
-                   user_note: str = ""):
+                   errors: str = '', verification: str = 'non_verifie',
+                   user_note:str= ""):
     """Ajoute une source collectee a un dossier."""
     now = datetime.now(timezone.utc).isoformat()
     conn = _connect()
-    cur = conn.execute(
-        "INSERT INTO sources (case_id, data_type, value, tool_name, source_url, collected_at, errors, verification, user_note) "
+    cur= conn.execute(
+        'INSERT INTO sources (case_id, data_type, value, tool_name, source_url, collected_at, errors, verification, user_note) '
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (case_id, data_type, value, tool_name, source_url, now, errors, verification, user_note),
     )
     conn.commit()
-    source_id = cur.lastrowid
+    source_id= cur.lastrowid
     conn.close()
-    conn = _connect()
+    conn =_connect()
     conn.execute("UPDATE cases SET updated_at=? WHERE id=?", (now, case_id))
     conn.commit()
     conn.close()
@@ -235,8 +223,8 @@ def modifier_source(source_id: int, **kwargs):
     fields = {k: v for k, v in kwargs.items() if k in ("user_note", "verification", "value")}
     if not fields:
         return False
-    sets = ", ".join(f"{k}=?" for k in fields)
-    vals = list(fields.values()) + [source_id]
+    sets =", ".join(f"{k}=?" for k in fields)
+    vals= list(fields.values()) + [source_id]
     conn = _connect()
     conn.execute(f"UPDATE sources SET {sets} WHERE id=?", vals)
     conn.commit()
@@ -246,19 +234,16 @@ def modifier_source(source_id: int, **kwargs):
 
 
 def supprimer_source(source_id: int) -> bool:
-    conn = _connect()
+    conn= _connect()
     conn.execute("DELETE FROM sources WHERE id=?", (source_id,))
     conn.commit()
-    ok = conn.total_changes > 0
+    ok=conn.total_changes > 0
     conn.close()
     return ok
 
 
-# ---------------------------------------------------------------------------
-# Historique des operations
-# ---------------------------------------------------------------------------
 
-def _ajouter_historique(action: str, details: dict):
+def _ajouter_historique(action:str, details: dict):
     """Ajoute une entree dans l'historique (fichier JSON)."""
     os.makedirs(DATA_DIR, exist_ok=True)
     try:
@@ -271,27 +256,27 @@ def _ajouter_historique(action: str, details: dict):
         hist = []
 
     if not isinstance(hist, list):
-        hist = []
+        hist =[]
 
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "action": action,
-        "details": details,
+        'details': details,
     }
     hist.append(entry)
 
-    max_hist = 500
+    max_hist= 500
     if len(hist) > max_hist:
         hist = hist[-max_hist:]
 
     try:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
             json.dump(hist, f, indent=2, ensure_ascii=False)
     except OSError:
         pass
 
 
-def charger_historique(limit: int = 50) -> list:
+def charger_historique(limit:int= 50) -> list:
     """Charge les dernieres entrees de l'historique."""
     if not os.path.isfile(HISTORY_FILE):
         return []
@@ -315,20 +300,17 @@ def effacer_historique():
         return False
 
 
-# ---------------------------------------------------------------------------
-# Registre de preuves (chaine d'integrite locale)
-# ---------------------------------------------------------------------------
 
 def _sha256_fichier(chemin):
     digest = hashlib.sha256()
-    with open(chemin, "rb") as flux:
+    with open(chemin, 'rb') as flux:
         for bloc in iter(lambda: flux.read(1 << 20), b""):
             digest.update(bloc)
     return digest.hexdigest()
 
 
 def _empreinte_entree(precedent, champs):
-    graine = precedent + "\n" + "\n".join(f"{cle}={champs[cle]}" for cle in sorted(champs))
+    graine= precedent + "\n" + "\n".join(f"{cle}={champs[cle]}" for cle in sorted(champs))
     return hashlib.sha256(graine.encode("utf-8")).hexdigest()
 
 
@@ -338,36 +320,36 @@ def ajouter_preuve(case_id, path, source="", note=""):
     Le fichier n'est jamais modifie ; seule son empreinte est stockee.
     """
     _init_db()
-    chemin = Path(path).expanduser().resolve()
+    chemin= Path(path).expanduser().resolve()
     if not chemin.is_file():
         raise ValueError(f"fichier introuvable : {chemin}")
-    empreinte = _sha256_fichier(chemin)
+    empreinte= _sha256_fichier(chemin)
     taille = chemin.stat().st_size
     horodatage = datetime.now(timezone.utc).isoformat()
     champs = {
-        "case_id": str(case_id), "path": str(chemin), "sha256": empreinte,
+        'case_id':str(case_id), 'path': str(chemin), 'sha256':empreinte,
         "size": str(taille), "source": source.strip(), "note": note.strip(),
         "recorded_at": horodatage,
     }
     conn = _connect()
     dernier = conn.execute(
-        "SELECT entry_hash FROM evidence WHERE case_id=? ORDER BY id DESC LIMIT 1",
+        'SELECT entry_hash FROM evidence WHERE case_id=? ORDER BY id DESC LIMIT 1',
         (case_id,),
     ).fetchone()
-    precedent = dernier["entry_hash"] if dernier else ""
-    champs["previous_hash"] = precedent
+    precedent =dernier['entry_hash'] if dernier else ''
+    champs["previous_hash"]= precedent
     entree = _empreinte_entree(precedent, champs)
     cur = conn.execute(
         "INSERT INTO evidence (case_id, path, sha256, size, source, note, recorded_at, "
         "previous_hash, entry_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (case_id, str(chemin), empreinte, taille, champs["source"], champs["note"],
+        (case_id, str(chemin), empreinte, taille, champs['source'], champs['note'],
          horodatage, precedent, entree),
     )
-    conn.execute("UPDATE cases SET updated_at=? WHERE id=?", (horodatage, case_id))
+    conn.execute('UPDATE cases SET updated_at=? WHERE id=?', (horodatage, case_id))
     conn.commit()
     preuve_id = cur.lastrowid
     conn.close()
-    _ajouter_historique("ajouter_preuve", {"case": case_id, "preuve": preuve_id})
+    _ajouter_historique("ajouter_preuve", {"case":case_id, "preuve": preuve_id})
     return preuve_id
 
 
@@ -375,7 +357,7 @@ def lister_preuves(case_id):
     """Liste les preuves d'un dossier dans l'ordre du registre."""
     _init_db()
     conn = _connect()
-    rows = conn.execute(
+    rows =conn.execute(
         "SELECT * FROM evidence WHERE case_id=? ORDER BY id", (case_id,)
     ).fetchall()
     conn.close()
@@ -394,21 +376,21 @@ def verifier_preuve(evidence_id):
     chemin = Path(preuve["path"])
     actuel = _sha256_fichier(chemin) if chemin.is_file() else None
     if actuel is None:
-        motif = "fichier absent"
-    elif actuel == preuve["sha256"]:
-        motif = "empreinte identique"
+        motif ="fichier absent"
+    elif actuel ==preuve["sha256"]:
+        motif= 'empreinte identique'
     else:
-        motif = "empreinte differente : le fichier a change"
-    resultat = {
-        "id": evidence_id,
+        motif ="empreinte differente : le fichier a change"
+    resultat ={
+        "id":evidence_id,
         "intact": actuel == preuve["sha256"],
-        "motif": motif,
+        'motif': motif,
         "attendu": preuve["sha256"],
-        "actuel": actuel,
+        "actuel":actuel,
     }
     conn.execute(
         "INSERT INTO evidence_checks (evidence_id, checked_at, intact, motif, sha256) "
-        "VALUES (?, ?, ?, ?, ?)",
+        'VALUES (?, ?, ?, ?, ?)',
         (evidence_id, datetime.now(timezone.utc).isoformat(), int(resultat["intact"]),
          motif, actuel or ""),
     )
@@ -423,13 +405,13 @@ def lister_verifications(evidence_id=None, case_id=None, limite=200):
     conn = _connect()
     if evidence_id is not None:
         rows = conn.execute(
-            "SELECT * FROM evidence_checks WHERE evidence_id=? ORDER BY id DESC LIMIT ?",
+            'SELECT * FROM evidence_checks WHERE evidence_id=? ORDER BY id DESC LIMIT ?',
             (evidence_id, limite),
         ).fetchall()
     elif case_id is not None:
-        rows = conn.execute(
+        rows =conn.execute(
             "SELECT c.* FROM evidence_checks c JOIN evidence e ON e.id = c.evidence_id "
-            "WHERE e.case_id=? ORDER BY c.id DESC LIMIT ?",
+            'WHERE e.case_id=? ORDER BY c.id DESC LIMIT ?',
             (case_id, limite),
         ).fetchall()
     else:
@@ -448,25 +430,25 @@ def verifier_chaine(case_id):
     une copie externe de la tete de chaine pour cela.
     """
     _init_db()
-    preuves = lister_preuves(case_id)
+    preuves =lister_preuves(case_id)
     anomalies = []
-    precedent = ""
+    precedent =''
     for preuve in preuves:
-        champs = {
-            "case_id": str(preuve["case_id"]), "path": preuve["path"],
-            "sha256": preuve["sha256"], "size": str(preuve["size"]),
+        champs= {
+            'case_id': str(preuve['case_id']), 'path': preuve['path'],
+            "sha256": preuve["sha256"], "size":str(preuve["size"]),
             "source": preuve["source"], "note": preuve["note"],
-            "recorded_at": preuve["recorded_at"],
+            'recorded_at': preuve['recorded_at'],
             "previous_hash": preuve["previous_hash"],
         }
         attendu = _empreinte_entree(precedent, champs)
-        if preuve["previous_hash"] != precedent:
+        if preuve["previous_hash"] !=precedent:
             anomalies.append({"id": preuve["id"], "motif": "maillon precedent inattendu"})
-        if attendu != preuve["entry_hash"]:
+        if attendu != preuve['entry_hash']:
             anomalies.append({"id": preuve["id"], "motif": "empreinte d'entree incoherente"})
         precedent = preuve["entry_hash"]
-    return {"valide": not anomalies, "entrees": len(preuves), "anomalies": anomalies,
-            "tete": precedent or None}
+    return {'valide': not anomalies, 'entrees': len(preuves), 'anomalies': anomalies,
+            "tete":precedent or None}
 
 
 def exporter_preuves_json(case_id):
@@ -474,7 +456,7 @@ def exporter_preuves_json(case_id):
     return {
         "case_id": case_id,
         "registre": lister_preuves(case_id),
-        "chaine": verifier_chaine(case_id),
+        'chaine':verifier_chaine(case_id),
         "verifications": lister_verifications(case_id=case_id),
     }
 
@@ -483,22 +465,22 @@ def exporter_preuves_markdown(case_id):
     """Rend le registre lisible, avec ses limites explicites."""
     preuves = lister_preuves(case_id)
     chaine = verifier_chaine(case_id)
-    lignes = [f"# Registre de preuves du dossier {case_id}", ""]
+    lignes= [f"# Registre de preuves du dossier {case_id}", '']
     lignes.append("| # | Fichier | SHA-256 | Taille | Enregistre le | Source |")
     lignes.append("|---|---|---|---|---|---|")
     for preuve in preuves:
         lignes.append(
             f"| {preuve['id']} | {preuve['path']} | {preuve['sha256'][:16]}… | "
-            f"{preuve['size']} | {preuve['recorded_at']} | {preuve['source'] or '-'} |"
+            f"{preuve["size"]} | {preuve["recorded_at"]} | {preuve["source"] or "-"} |"
         )
     lignes.extend(["", "## Verification", ""])
-    lignes.append(f"- Entrees : {chaine['entrees']}")
+    lignes.append(f"- Entrees : {chaine["entrees"]}")
     lignes.append(f"- Chaine : {'intacte' if chaine['valide'] else 'incoherente'}")
     lignes.append(f"- Tete de chaine : {chaine['tete'] or '-'}")
-    for anomalie in chaine["anomalies"]:
+    for anomalie in chaine['anomalies']:
         lignes.append(f"- Anomalie entree {anomalie['id']} : {anomalie['motif']}")
     controles = lister_verifications(case_id=case_id)
-    lignes.extend(["", "## Historique des verifications", ""])
+    lignes.extend(['', '## Historique des verifications', ''])
     if not controles:
         lignes.append("Aucun controle enregistre.")
     else:
@@ -507,7 +489,7 @@ def exporter_preuves_markdown(case_id):
         for controle in controles[:50]:
             lignes.append(f"| {controle['evidence_id']} | {controle['checked_at']} | "
                           f"{'intact' if controle['intact'] else 'modifie'} | {controle['motif']} |")
-    lignes.extend(["", "## Limites", ""])
+    lignes.extend(['', '## Limites', ''])
     lignes.append("Ce registre est local et detecte une modification accidentelle ou "
                   "isolee des entrees. Il ne rend pas les fichiers immuables : un acteur "
                   "qui reecrit le registre et recalcule les empreintes n'est pas detectable "
@@ -515,35 +497,29 @@ def exporter_preuves_markdown(case_id):
     return "\n".join(lignes) + "\n"
 
 
-# ---------------------------------------------------------------------------
-# Export (appele par modules/export)
-# ---------------------------------------------------------------------------
 
 def exporter_case_json(case_id: int) -> dict:
     """Retourne un dict JSON-serialisable d'un dossier."""
-    case = obtenir_case(case_id)
+    case= obtenir_case(case_id)
     if not case:
         return {"error": "Case not found"}
     return {
-        "id": case["id"],
+        'id':case['id'],
         "title": case["title"],
         "description": case["description"],
-        "created_at": case["created_at"],
+        'created_at':case['created_at'],
         "updated_at": case["updated_at"],
         "notes": case["notes"],
-        "sources": case["sources"],
+        'sources': case['sources'],
         "evidence": lister_preuves(case_id),
     }
 
 
 def exporter_tout_json() -> list:
     """Exporte tous les dossiers en une liste JSON."""
-    cases = lister_cases()
+    cases =lister_cases()
     return [exporter_case_json(c["id"]) for c in cases]
 
 
-# ---------------------------------------------------------------------------
-# Initialisation au chargement
-# ---------------------------------------------------------------------------
 
 _init_db()

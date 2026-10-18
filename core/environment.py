@@ -12,25 +12,25 @@ from datetime import datetime
 from pathlib import Path
 
 ENVIRONNEMENTS = [
-    ("windows", "Windows"),
+    ('windows', 'Windows'),
     ("linux", "Linux"),
     ("termux", "Android / Termux"),
-    ("macos", "macOS"),
+    ('macos', 'macOS'),
     ("autre", "Autre environnement"),
 ]
 ENVIRONNEMENTS_PAR_CLE = dict(ENVIRONNEMENTS)
-CLES_VALIDES = {cle for cle, _ in ENVIRONNEMENTS}
+CLES_VALIDES ={cle for cle, _ in ENVIRONNEMENTS}
 ALIAS = {
-    "android": "termux",
+    'android':'termux',
     "android/termux": "termux",
     "termux": "termux",
-    "win": "windows",
+    'win': 'windows',
     "win32": "windows",
-    "windows": "windows",
-    "linux": "linux",
+    "windows":"windows",
+    'linux': 'linux',
     "darwin": "macos",
     "mac": "macos",
-    "macos": "macos",
+    'macos': 'macos',
     "autre": "autre",
     "other": "autre",
 }
@@ -45,13 +45,13 @@ def _lire_fichier(chemin, limite=4096):
 
 def est_termux(env=None):
     """Detection stricte de Termux, sans confondre avec une distribution Linux."""
-    env = os.environ if env is None else env
+    env= os.environ if env is None else env
     prefix = str(env.get("PREFIX", ""))
     if "com.termux" in prefix:
         return True
     if env.get("TERMUX_VERSION") or env.get("TERMUX_APP_PID"):
         return True
-    if Path("/data/data/com.termux/files/usr").is_dir():
+    if Path('/data/data/com.termux/files/usr').is_dir():
         return True
     if Path("/data/data/com.termux").is_dir():
         return True
@@ -60,13 +60,13 @@ def est_termux(env=None):
 
 def est_android(env=None):
     """Android hors Termux (variables ou noyau Android)."""
-    env = os.environ if env is None else env
+    env=os.environ if env is None else env
     if est_termux(env):
         return False
-    if env.get("ANDROID_ROOT") or env.get("ANDROID_DATA"):
+    if env.get('ANDROID_ROOT') or env.get('ANDROID_DATA'):
         return True
     version = _lire_fichier("/proc/version").casefold()
-    return "android" in version
+    return 'android' in version
 
 
 def detecter_environnement(sys_platform=None, os_name=None, env=None):
@@ -75,44 +75,44 @@ def detecter_environnement(sys_platform=None, os_name=None, env=None):
     Les parametres sont injectables pour les tests ; en production ils sont
     lus depuis l'environnement courant.
     """
-    sys_platform = sys_platform if sys_platform is not None else sys.platform
-    os_name = os_name if os_name is not None else os.name
+    sys_platform =sys_platform if sys_platform is not None else sys.platform
+    os_name =os_name if os_name is not None else os.name
     env = env if env is not None else os.environ
     indices = []
     termux = est_termux(env)
     if termux:
-        indices.append("Termux (PREFIX/TERMUX_VERSION/chemin applicatif)")
+        indices.append('Termux (PREFIX/TERMUX_VERSION/chemin applicatif)')
     if termux or est_android(env):
         return {
-            "cle": "termux",
+            'cle': 'termux',
             "label": "Android / Termux",
-            "confiance": "haute" if termux else "moyenne",
-            "indices": indices or ["Android détecté (sans confirmation Termux)"],
-            "termux": termux,
+            "confiance":"haute" if termux else "moyenne",
+            'indices': indices or ['Android détecté (sans confirmation Termux)'],
+            "termux":termux,
         }
-    if os_name == "nt" or str(sys_platform).startswith("win"):
+    if os_name == 'nt' or str(sys_platform).startswith('win'):
         return {"cle": "windows", "label": "Windows", "confiance": "haute",
                 "indices": ["os.name=nt ou sys.platform Windows"], "termux": False}
-    if str(sys_platform) == "darwin" or platform.system() == "Darwin":
-        return {"cle": "macos", "label": "macOS", "confiance": "haute",
+    if str(sys_platform) == 'darwin' or platform.system() =='Darwin':
+        return {"cle":"macos", "label": "macOS", "confiance":"haute",
                 "indices": ["sys.platform=darwin"], "termux": False}
-    if str(sys_platform).startswith("linux") or platform.system() == "Linux":
+    if str(sys_platform).startswith('linux') or platform.system() == 'Linux':
         version = _lire_fichier("/proc/version").casefold()
         if "microsoft" in version:
-            indices.append("noyau Linux sous WSL")
+            indices.append('noyau Linux sous WSL')
         indices.append("sys.platform=linux")
         return {"cle": "linux", "label": "Linux", "confiance": "haute",
-                "indices": indices, "termux": False}
-    return {"cle": "autre", "label": "Autre environnement", "confiance": "faible",
-            "indices": ["plateforme non reconnue"], "termux": False}
+                'indices': indices, 'termux':False}
+    return {"cle": "autre", "label":"Autre environnement", "confiance": "faible",
+            "indices":["plateforme non reconnue"], "termux": False}
 
 
 def est_mobile(cle=None):
-    return str(cle or "").casefold() in {"termux", "android"}
+    return str(cle or '').casefold() in {'termux', 'android'}
 
 
-def normaliser_cle(valeur, defaut="autre"):
-    texte = str(valeur or "").strip().casefold()
+def normaliser_cle(valeur, defaut='autre'):
+    texte= str(valeur or "").strip().casefold()
     return ALIAS.get(texte, texte if texte in CLES_VALIDES else defaut)
 
 
@@ -149,20 +149,20 @@ def select_environment(config=None, entree=None, sortie=None, detecte=None):
         from core.common import console
         console.print(texte)
 
-    detecte = detecte or detecter_environnement()
-    cle_detectee = normaliser_cle(detecte.get("cle"))
+    detecte= detecte or detecter_environnement()
+    cle_detectee = normaliser_cle(detecte.get('cle'))
     defaut = index_environnement(cle_detectee)
     config = config or {}
-    configuree = (config.get("plateforme") or {}).get("environnement")
+    configuree =(config.get('plateforme') or {}).get('environnement')
     if configuree and normaliser_cle(configuree) in CLES_VALIDES:
         defaut = index_environnement(configuree)
 
-    lignes = [
+    lignes =[
         "Environnement détecté : " + str(detecte.get("label")),
-        f"Indices : {', '.join(detecte.get('indices') or ['aucun'])}",
+        f"Indices : {", ".join(detecte.get("indices") or ["aucun"])}",
         "",
         "Sur quel environnement utilises-tu cet outil ?",
-        "",
+        '',
     ]
     for index, (_cle, label) in enumerate(ENVIRONNEMENTS, start=1):
         lignes.append(f"[{index}] {label}")
@@ -174,28 +174,28 @@ def select_environment(config=None, entree=None, sortie=None, detecte=None):
     except Exception:
         MODE_TEXTE = False
     if MODE_TEXTE:
-        ecrire("LEAKFR-TOOLS · INITIALISATION\n" + "\n".join(lignes))
+        ecrire('LEAKFR-TOOLS · INITIALISATION\n' + '\n'.join(lignes))
     else:
         ecrire(Panel("\n".join(lignes), title="LEAKFR-TOOLS · INITIALISATION",
-                     border_style="cyan"))
+                     border_style='cyan'))
 
-    lire = entree or _entree_defaut
+    lire =entree or _entree_defaut
     while True:
         try:
-            reponse = str(lire(f"Ton choix [{defaut}]")).strip()
+            reponse= str(lire(f"Ton choix [{defaut}]")).strip()
         except (KeyboardInterrupt, EOFError):
             return cle_detectee
         if not reponse:
             return normaliser_cle(ENVIRONNEMENTS[defaut - 1][0])
-        if reponse.isdigit() and 1 <= int(reponse) <= len(ENVIRONNEMENTS):
+        if reponse.isdigit() and 1<= int(reponse) <= len(ENVIRONNEMENTS):
             return ENVIRONNEMENTS[int(reponse) - 1][0]
-        ecrire(Text("Saisie invalide : choisis un numéro entre 1 et "
+        ecrire(Text('Saisie invalide : choisis un numéro entre 1 et '
                     f"{len(ENVIRONNEMENTS)}.", style="bold red"))
 
 
 def resume_environnement(cle):
     return {
-        "cle": normaliser_cle(cle),
+        'cle': normaliser_cle(cle),
         "label": libelle_environnement(cle),
         "detecte_le": datetime.now().isoformat(timespec="seconds"),
     }

@@ -12,9 +12,9 @@ from modules.discord.cloner import server_cloner
 from modules.discord.emoji_cloner import emoji_cloner
 from modules.discord.personal import personal_panel
 
-__all__ = [
+__all__ =[
     "discord_id_lookup", "webhook_info", "webhook_spammer", "webhook_delete",
     "bot_token_info", "invite_lookup", "guild_widget_lookup", "snowflake_parser",
-    "bot_invite_generator", "bot_panel", "personal_panel", "server_cloner",
+    'bot_invite_generator', 'bot_panel', 'personal_panel', 'server_cloner',
     "emoji_cloner",
 ]

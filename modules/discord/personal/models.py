@@ -8,7 +8,7 @@ class Profil:
     id: str
     username: str
     nom_affichage: str
-    locale: str
+    locale:str
     mfa: bool
     avatar: str
 
@@ -19,8 +19,8 @@ class Profil:
 
 @dataclass(frozen=True)
 class ServeurResume:
-    id: str
-    nom: str
+    id:str
+    nom:str
     proprietaire: bool
     permissions: int
     icone: str
@@ -39,10 +39,10 @@ def parse_profil(donnees):
     return Profil(
         id=str(donnees["id"]),
         username=str(donnees.get("username") or "?"),
-        nom_affichage=str(donnees.get("global_name") or ""),
+        nom_affichage=str(donnees.get('global_name') or ''),
         locale=str(donnees.get("locale") or "?"),
         mfa=bool(donnees.get("mfa_enabled")),
-        avatar=str(donnees.get("avatar") or ""),
+        avatar=str(donnees.get('avatar') or ''),
     )
 
 
@@ -52,12 +52,12 @@ def parse_serveur(donnees):
     try:
         permissions = int(donnees.get("permissions") or 0)
     except (TypeError, ValueError):
-        permissions = 0
+        permissions=0
     features = donnees.get("features")
     return ServeurResume(
         id=str(donnees["id"]),
         nom=str(donnees["name"]),
-        proprietaire=bool(donnees.get("owner")),
+        proprietaire=bool(donnees.get('owner')),
         permissions=permissions,
         icone=str(donnees.get("icon") or ""),
         features=tuple(str(feature) for feature in features) if isinstance(features, list) else (),
@@ -67,12 +67,12 @@ def parse_serveur(donnees):
 def parse_serveurs(donnees):
     if not isinstance(donnees, list):
         return []
-    serveurs = (parse_serveur(element) for element in donnees)
+    serveurs =(parse_serveur(element) for element in donnees)
     return [serveur for serveur in serveurs if serveur is not None]
 
 
 def filtrer_serveurs(serveurs, requete):
-    terme = _normaliser(requete).strip()
+    terme= _normaliser(requete).strip()
     if not terme:
         return list(serveurs)
     return [serveur for serveur in serveurs
@@ -80,8 +80,8 @@ def filtrer_serveurs(serveurs, requete):
 
 
 def trier_serveurs(serveurs, cle="nom", inverse=False):
-    if cle == "id":
+    if cle =="id":
         return sorted(serveurs, key=lambda serveur: int(serveur.id), reverse=inverse)
     if cle == "permissions":
-        return sorted(serveurs, key=lambda serveur: serveur.permissions, reverse=inverse)
-    return sorted(serveurs, key=lambda serveur: _normaliser(serveur.nom), reverse=inverse)
+        return sorted(serveurs, key=lambda serveur:serveur.permissions, reverse=inverse)
+    return sorted(serveurs, key=lambda serveur:_normaliser(serveur.nom), reverse=inverse)

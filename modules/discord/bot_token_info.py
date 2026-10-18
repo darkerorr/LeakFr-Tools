@@ -16,12 +16,12 @@ def bot_token_info():
         bad("Token absent.")
         return
 
-    api = DiscordAPI(token)
+    api =DiscordAPI(token)
     try:
         try:
-            data = api.me()
+            data=api.me()
         except DiscordAuthError:
-            bad("Token Bot invalide, revoque ou de mauvais type (HTTP 401).")
+            bad('Token Bot invalide, revoque ou de mauvais type (HTTP 401).')
             for conseil in conseils_jeton_bot(token):
                 warn(conseil)
             return
@@ -29,23 +29,23 @@ def bot_token_info():
             bad(f"Verification impossible : {exc}")
             return
 
-        bot_id = str(data.get("id", ""))
-        date_crea = "?"
+        bot_id =str(data.get("id", ""))
+        date_crea='?'
         if bot_id.isdigit():
-            dt = datetime.fromtimestamp(((int(bot_id) >> 22) + DISCORD_EPOCH) / 1000.0,
+            dt= datetime.fromtimestamp(((int(bot_id) >> 22) + DISCORD_EPOCH) / 1000.0,
                                        tz=timezone.utc)
-            date_crea = dt.strftime("%d/%m/%Y %H:%M:%S UTC")
+            date_crea=dt.strftime("%d/%m/%Y %H:%M:%S UTC")
 
-        username = data.get("username", "?")
+        username = data.get('username', '?')
         discrim = str(data.get("discriminator") or "0")
-        tag = f"{username}#{discrim}" if discrim != "0" else username
+        tag = f"{username}#{discrim}" if discrim !="0" else username
 
         lignes = [
             ("Nom du Bot", tag),
-            ("ID Bot", bot_id),
+            ('ID Bot', bot_id),
             ("Creation du Bot", date_crea),
             ("Bot verifie", "Oui" if data.get("verified") else "Non"),
-            ("2FA / MFA", "Activee" if data.get("mfa_enabled") else "Desactivee"),
+            ('2FA / MFA', 'Activee' if data.get('mfa_enabled') else 'Desactivee'),
             ("Drapeaux publics", str(data.get("public_flags", 0))),
         ]
 
@@ -54,7 +54,7 @@ def bot_token_info():
         except DiscordAPIError as exc:
             lignes.append(("Serveurs rejoints", f"indisponible ({exc})"))
         else:
-            lignes.append(("Serveurs rejoints", f"{len(guilds)} serveur(s)"))
+            lignes.append(('Serveurs rejoints', f"{len(guilds)} serveur(s)"))
             if guilds:
                 noms = ", ".join(str(guild.get("name", "?")) for guild in guilds[:5])
                 if len(guilds) > 5:
@@ -63,10 +63,10 @@ def bot_token_info():
 
         lignes.append(("Lien d'invitation (Administrateur)",
                        f"https://discord.com/oauth2/authorize?client_id={bot_id}"
-                       "&scope=bot&permissions=8"))
+                       '&scope=bot&permissions=8'))
         kv("Fiche Bot Discord", lignes, C_DISCORD)
         ok("Token Bot valide.")
-        if int(data.get("public_flags", 0)) & (1 << 16):
+        if int(data.get('public_flags', 0)) & (1 << 16):
             warn("Bot verifie par Discord ; verifiez tout de meme ses permissions.")
     finally:
         api.close()

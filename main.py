@@ -12,14 +12,13 @@ import platform
 from pathlib import Path
 
 if os.name == "nt":
-    # Aucune commande shell : l'API Windows suffit et reste sans effet ailleurs.
     try:
         import ctypes
         ctypes.windll.kernel32.SetConsoleOutputCP(65001)
     except (AttributeError, OSError):
         pass
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding='utf-8')
     except Exception:
         pass
 
@@ -33,11 +32,11 @@ from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich.text import Text
 
-# Core & Helpers
+from core import ui
 from core.branding import en_tete, entete_bandeau, logo_final
 from core.vcs import info_commit, ligne_commit
 from core.common import (
-    console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
+    console, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW, MODE_TEXTE,
     BANNER, BANNER_SOUS_TITRE, BANNER_TAGLINE,
     C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD,
@@ -68,7 +67,6 @@ from core.catalogue import (
     _OUTILS_PAR_NOM, _ROUTE_PAR_NOM, rechercher_outils as _moteur_recherche,
 )
 
-# --- Configuration globale ---
 _CONFIG = charger()
 
 
@@ -77,7 +75,7 @@ def _synchroniser_couleurs_locales():
     global C_OSINT, C_RECON, C_CYBER, C_PENTEST, C_UTIL, C_ASTRO, C_GOLD, C_DISCORD
     import core.common as common_ui
     for nom in ("C_OSINT", "C_RECON", "C_CYBER", "C_PENTEST", "C_UTIL", "C_ASTRO", "C_GOLD", "C_DISCORD"):
-        globals()[nom] = getattr(common_ui, nom)
+        globals()[nom]= getattr(common_ui, nom)
 
 
 def _appliquer_configuration_visuelle():
@@ -101,70 +99,70 @@ def _ecran_parametres():
 
     while True:
         clear_screen()
-        titre("PARAMETRES", C_GOLD)
+        titre('PARAMETRES', C_GOLD)
 
-        t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        t.add_column("Reglage", width=40)
+        t = Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
+        t.add_column('Reglage', width=40)
         t.add_column("Valeur actuelle")
 
-        app = _CONFIG.get("apparence", {})
+        app = _CONFIG.get('apparence', {})
         reseau = _CONFIG.get("reseau", {})
 
-        styles = {"dashboard": "Dashboard split", "classique": "Classique", "compact": "Compact"}
-        largeurs = {"auto": "Automatique", "large": "Large", "etroit": "Etroit"}
+        styles = {'dashboard': 'Dashboard split', 'classique': 'Classique', 'compact':'Compact'}
+        largeurs= {"auto":"Automatique", "large": "Large", "etroit": "Etroit"}
         plateforme = _CONFIG.setdefault("plateforme", {})
-        reglages = [
+        reglages =[
             "Palette de couleurs", "Style d'interface", "Couleur d'accent",
             "Couleur du texte shell", "Fond shell", "Largeur du menu",
-            "Panneau lateral", "Badges de categories", "Banniere de demarrage",
+            'Panneau lateral', 'Badges de categories', 'Banniere de demarrage',
             "Duree de l'introduction", "Animations", "Timeout reseau",
             "Cle API NASA",
-            "Environnement (affichage)",
+            'Environnement (affichage)',
             "Mode texte de secours", "Largeur de sortie", "Pagination",
             "Compatibilite des outils", "Restaurer les parametres par defaut",
-            "Personnaliser les couleurs du theme", "Retour au menu principal",
+            'Personnaliser les couleurs du theme', 'Retour au menu principal',
         ]
         t.add_row("Palette de couleurs", nommer_theme(app.get("theme_actif", "original")))
-        t.add_row("Style d'interface", styles.get(app.get("style_interface"), "Dashboard split"))
+        t.add_row("Style d'interface", styles.get(app.get('style_interface'), 'Dashboard split'))
         t.add_row("Couleur d'accent", app.get("couleur_accent") or "Auto (palette)")
         t.add_row("Couleur du texte shell", app.get("couleur_shell_texte", "#ffffff"))
-        t.add_row("Fond shell (sorties Rich)", app.get("couleur_shell_fond", "#10131c"))
+        t.add_row('Fond shell (sorties Rich)', app.get('couleur_shell_fond', '#10131c'))
         t.add_row("Largeur du menu", largeurs.get(app.get("largeur_menu"), "Automatique"))
         t.add_row("Panneau lateral", str(app.get("afficher_panneau_lateral", True)))
-        t.add_row("Badges de categories", str(app.get("afficher_badges_categories", True)))
+        t.add_row('Badges de categories', str(app.get('afficher_badges_categories', True)))
         t.add_row("Banniere de demarrage", str(app.get("banniere_demarrage", True)))
         _duree = duree_intro(app)
         t.add_row("Duree de l'introduction",
                   "Instantane (0 s)" if _duree <= 0 else f"{_duree:.1f} s")
         t.add_row("Animations", str(app.get("animations", True)))
-        t.add_row("Timeout reseau (s)", str(reseau.get("timeout", 8)))
+        t.add_row('Timeout reseau (s)', str(reseau.get('timeout', 8)))
         cle_nasa = str((_CONFIG.get("api_keys") or {}).get("nasa_api_key") or "")
         t.add_row("Cle API NASA", "definie (masquee)" if cle_nasa else
-                  ("NASA_API_KEY (environnement)" if os.environ.get("NASA_API_KEY")
+                  ('NASA_API_KEY (environnement)' if os.environ.get('NASA_API_KEY')
                    else "cle publique DEMO_KEY"))
         env_configure = str(plateforme.get("environnement") or "auto")
-        if env_configure == "auto":
-            env_configure = f"Automatique ({libelle_environnement(detecter_environnement()['cle'])})"
+        if env_configure == 'auto':
+            env_configure =f"Automatique ({libelle_environnement(detecter_environnement()['cle'])})"
         else:
             env_configure = libelle_environnement(env_configure)
         t.add_row("Environnement (affichage)", env_configure)
         t.add_row("Mode texte de secours", str(plateforme.get("mode_texte", False)))
-        t.add_row("Largeur de sortie", largeurs.get(plateforme.get("largeur_sortie"), "Automatique"))
+        t.add_row('Largeur de sortie', largeurs.get(plateforme.get('largeur_sortie'), 'Automatique'))
         t.add_row("Pagination", f"{plateforme.get('pagination', 15)} resultats")
         t.add_row("Compatibilite des outils", "Diagnostic local")
-        t.add_row("Restaurer les parametres par defaut", "")
+        t.add_row('Restaurer les parametres par defaut', '')
         t.add_row("Personnaliser les couleurs du theme", "")
         t.add_row("Retour au menu principal", "")
 
         console.print(t)
         c = selectionner_option("PARAMETRES", reglages)
-        if c is None or c == "Retour au menu principal":
+        if c is None or c == 'Retour au menu principal':
             break
         elif c == "Palette de couleurs":
             _menu_themes()
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
-        elif c == "Personnaliser les couleurs du theme":
+        elif c== 'Personnaliser les couleurs du theme':
             _menu_palette_personnalisee()
             pause()
             continue
@@ -173,13 +171,13 @@ def _ecran_parametres():
             if choix is None:
                 continue
             _CONFIG["apparence"]["style_interface"] = {
-                "Dashboard split": "dashboard", "Classique": "classique", "Compact": "compact"
+                'Dashboard split':'dashboard', 'Classique': 'classique', 'Compact':'compact'
             }[choix]
         elif c == "Couleur d'accent":
-            _configurer_couleur("couleur_accent", "Accent (hex #RRGGBB ou vide pour Auto)", optionnelle=True)
+            _configurer_couleur('couleur_accent', 'Accent (hex #RRGGBB ou vide pour Auto)', optionnelle=True)
             pause()
             continue
-        elif c == "Couleur du texte shell":
+        elif c== 'Couleur du texte shell':
             _configurer_couleur("couleur_shell_texte", "Couleur du texte shell")
             pause()
             continue
@@ -188,97 +186,97 @@ def _ecran_parametres():
             pause()
             continue
         elif c == "Largeur du menu":
-            choix = selectionner_option("LARGEUR DU MENU", ["Automatique", "Large", "Etroit"])
+            choix =selectionner_option('LARGEUR DU MENU', ['Automatique', 'Large', 'Etroit'])
             if choix is None:
                 continue
-            _CONFIG["apparence"]["largeur_menu"] = {
+            _CONFIG['apparence']['largeur_menu'] = {
                 "Automatique": "auto", "Large": "large", "Etroit": "etroit"
             }[choix]
-        elif c == "Panneau lateral":
+        elif c=='Panneau lateral':
             app["afficher_panneau_lateral"] = not app.get("afficher_panneau_lateral", True)
         elif c == "Badges de categories":
-            app["afficher_badges_categories"] = not app.get("afficher_badges_categories", True)
-        elif c == "Banniere de demarrage":
+            app['afficher_badges_categories'] = not app.get('afficher_badges_categories', True)
+        elif c =="Banniere de demarrage":
             app["banniere_demarrage"] = not app.get("banniere_demarrage", True)
         elif c == "Duree de l'introduction":
-            brut = demander("Duree de l'introduction (0 a 10 secondes, 0 = instantane)",
+            brut=demander("Duree de l'introduction (0 a 10 secondes, 0 = instantane)",
                             f"{duree_intro(app):.1f}")
             try:
                 valeur = float(str(brut).replace(",", "."))
             except ValueError:
-                bad("Valeur invalide (nombres entre 0 et 10).")
+                bad('Valeur invalide (nombres entre 0 et 10).')
                 continue
             app["duree_intro"] = max(0.0, min(INTRO_DUREE_MAX, valeur))
             sauvegarder(_CONFIG)
             ok(f"Introduction reglee sur {app['duree_intro']:.1f} s.")
         elif c == "Animations":
-            app["animations"] = not app.get("animations", True)
+            app['animations'] =not app.get('animations', True)
         elif c == "Timeout reseau":
             v = Prompt.ask("Timeout reseau (secondes)", default=str(reseau.get("timeout", 8)))
             if v.isdigit() and 1 <= int(v) <= 120:
-                reseau["timeout"] = int(v)
+                reseau["timeout"] =int(v)
                 sauvegarder(_CONFIG)
-                ok("Timeout mis a jour.")
+                ok('Timeout mis a jour.')
             else:
                 bad("Valeur invalide (1-120).")
-        elif c == "Cle API NASA":
+        elif c == 'Cle API NASA':
             actuelle = str((_CONFIG.get("api_keys") or {}).get("nasa_api_key") or "")
-            saisie_cle = Prompt.ask(
-                "Cle API NASA (vide pour effacer ; NASA_API_KEY reste prioritaire)",
+            saisie_cle =Prompt.ask(
+                'Cle API NASA (vide pour effacer ; NASA_API_KEY reste prioritaire)',
                 default=actuelle, show_default=False).strip()
             _CONFIG.setdefault("api_keys", {})["nasa_api_key"] = saisie_cle
             sauvegarder(_CONFIG)
             if saisie_cle:
                 ok(f"Cle API NASA enregistree localement ({len(saisie_cle)} caracteres, "
-                   "non affichee). Elle sera utilisee au prochain appel NASA.")
+                   'non affichee). Elle sera utilisee au prochain appel NASA.')
             else:
                 ok("Cle API NASA effacee : retour a la cle publique DEMO_KEY.")
-        elif c == "Environnement (affichage)":
-            cle = select_environment(_CONFIG)
+        elif c == 'Environnement (affichage)':
+            cle =select_environment(_CONFIG)
             plateforme["environnement"] = normaliser_cle(cle)
-            plateforme["selectionne_le"] = resume_environnement(cle)["detecte_le"]
+            plateforme['selectionne_le'] = resume_environnement(cle)['detecte_le']
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
             ok(f"Affichage adapte a {libelle_environnement(cle)} (systeme reel inchange).")
         elif c == "Mode texte de secours":
-            plateforme["mode_texte"] = not plateforme.get("mode_texte", False)
+            plateforme["mode_texte"]=not plateforme.get("mode_texte", False)
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
             ok("Mode texte active." if plateforme["mode_texte"] else "Mode texte desactive.")
-        elif c == "Largeur de sortie":
+        elif c == 'Largeur de sortie':
             choix = selectionner_option("LARGEUR DE SORTIE",
                                         ["Automatique", "Large", "Etroit"])
             if choix is None:
                 continue
-            plateforme["largeur_sortie"] = {
-                "Automatique": "auto", "Large": "large", "Etroit": "etroit"
+            plateforme["largeur_sortie"]= {
+                'Automatique': 'auto', 'Large':'large', 'Etroit': 'etroit'
             }[choix]
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
             ok("Largeur de sortie appliquee.")
         elif c == "Pagination":
-            valeur = ask_number("Resultats par page", 5, 50,
+            valeur = ask_number('Resultats par page', 5, 50,
                                 defaut=plateforme.get("pagination", 15))
             if valeur is not None:
-                plateforme["pagination"] = valeur
+                plateforme['pagination']= valeur
                 sauvegarder(_CONFIG)
                 _appliquer_configuration_visuelle()
                 ok(f"Pagination : {valeur} resultats par page.")
-        elif c == "Compatibilite des outils":
+        elif c== "Compatibilite des outils":
             afficher_compatibilite()
             pause()
             continue
         elif c == "Restaurer les parametres par defaut":
-            if Confirm.ask("Restaurer tous les parametres par defaut ?"):
-                _CONFIG = restaurer_defauts()
+            if Confirm.ask('Restaurer tous les parametres par defaut ?'):
+                _CONFIG =restaurer_defauts()
                 _appliquer_configuration_visuelle()
-                ok("Parametres reinitialises.")
+                ok('Parametres reinitialises.')
         if c in {"Style d'interface", "Largeur du menu", "Panneau lateral",
                  "Badges de categories", "Banniere de demarrage", "Animations"}:
             sauvegarder(_CONFIG)
             _appliquer_configuration_visuelle()
             ok("Reglage d'interface sauvegarde et applique.")
-        if c not in {"Couleur d'accent", "Couleur du texte shell", "Fond shell",
+        if c not in {"Couleur d'accent", 'Couleur du texte shell', 'Fond shell',
                      "Personnaliser les couleurs du theme", "Environnement (affichage)",
                      "Mode texte de secours", "Largeur de sortie", "Pagination"}:
             pause()
@@ -289,38 +287,38 @@ def _menu_palette_personnalisee():
     global _CONFIG
     from core.theme import SLOTS, couleur_valide, appliquer_theme
     palette = _CONFIG.setdefault("theme_personnalise", {}).copy()
-    theme_config = dict(_CONFIG)
-    theme_config.setdefault("apparence", {})["couleur_accent"] = ""
+    theme_config =dict(_CONFIG)
+    theme_config.setdefault('apparence', {})['couleur_accent'] = ''
     palette.update(appliquer_theme(theme_config))
-    _CONFIG["theme_personnalise"] = palette
+    _CONFIG["theme_personnalise"] =palette
     labels = {
         "principale": "Couleur principale", "secondaire": "Couleur secondaire",
-        "titres": "Titres", "texte_principal": "Texte principal",
-        "texte_secondaire": "Texte secondaire", "selection": "Selection",
-        "bordures": "Bordures", "accents": "Accents", "succes": "Succes",
-        "avertissements": "Avertissements", "erreurs": "Erreurs", "panneaux": "Panneaux",
+        "titres": "Titres", "texte_principal":"Texte principal",
+        'texte_secondaire':'Texte secondaire', 'selection': 'Selection',
+        "bordures": "Bordures", "accents": "Accents", "succes":"Succes",
+        "avertissements": "Avertissements", "erreurs":"Erreurs", "panneaux": "Panneaux",
     }
     while True:
         clear_screen()
-        titre("PALETTE PERSONNALISEE", C_GOLD)
-        table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+        titre('PALETTE PERSONNALISEE', C_GOLD)
+        table= Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
         table.add_column("Role")
-        table.add_column("Couleur")
+        table.add_column('Couleur')
         roles = [labels[slot] for slot in SLOTS]
         for slot in SLOTS:
-            table.add_row(labels[slot], palette.get(slot, "#ffffff"))
+            table.add_row(labels[slot], palette.get(slot, '#ffffff'))
         table.add_row("Terminer", "")
         console.print(table)
-        choix = selectionner_option("PALETTE PERSONNALISEE", roles + ["Terminer"])
+        choix = selectionner_option('PALETTE PERSONNALISEE', roles + ['Terminer'])
         if choix in (None, "Terminer"):
             break
         slot = SLOTS[roles.index(choix)]
-        valeur = Prompt.ask(f"Nouvelle couleur pour {labels[slot]}", default=palette.get(slot, "#ffffff")).strip()
+        valeur =Prompt.ask(f"Nouvelle couleur pour {labels[slot]}", default=palette.get(slot, "#ffffff")).strip()
         if not couleur_valide(valeur):
-            bad("Couleur invalide : saisissez #RRGGBB ou un nom Rich reconnu.")
+            bad('Couleur invalide : saisissez #RRGGBB ou un nom Rich reconnu.')
             continue
         palette[slot] = valeur.lower()
-        _CONFIG["theme_personnalise"] = palette
+        _CONFIG['theme_personnalise'] =palette
         _CONFIG["apparence"]["theme_actif"] = "personnalise"
         _appliquer_configuration_visuelle()
         sauvegarder(_CONFIG)
@@ -329,10 +327,10 @@ def _menu_palette_personnalisee():
 
 def _configurer_couleur(cle, invite, optionnelle=False):
     from core.theme import couleur_valide
-    valeur = Prompt.ask(invite, default="" if optionnelle else _CONFIG["apparence"].get(cle, "#ffffff"),
+    valeur = Prompt.ask(invite, default='' if optionnelle else _CONFIG['apparence'].get(cle, '#ffffff'),
                         show_default=not optionnelle).strip()
     if optionnelle and not valeur:
-        _CONFIG["apparence"][cle] = ""
+        _CONFIG['apparence'][cle] =''
     elif couleur_valide(valeur):
         _CONFIG["apparence"][cle] = valeur.lower()
     else:
@@ -350,31 +348,31 @@ def _menu_themes():
 
     while True:
         clear_screen()
-        titre("PERSONNALISATION DES COULEURS", C_GOLD)
+        titre('PERSONNALISATION DES COULEURS', C_GOLD)
 
         app = _CONFIG.get("apparence", {})
-        theme_actif = app.get("theme_actif", "original")
+        theme_actif = app.get('theme_actif', 'original')
 
-        t = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        t.add_column("Theme", width=25)
+        t = Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
+        t.add_column('Theme', width=25)
         t.add_column("Statut")
 
         themes_liste = liste_themes()
-        options = []
+        options= []
         for cle in themes_liste:
-            label = nommer_theme(cle)
+            label= nommer_theme(cle)
             options.append(label)
-            actif = " [ACTIF]" if cle == theme_actif else ""
-            t.add_row(label, f"[bold green]{actif}[/]" if actif else "")
+            actif =" [ACTIF]" if cle == theme_actif else ""
+            t.add_row(label, f"[bold green]{actif}[/]" if actif else '')
 
         t.add_row("Retour", "")
 
         console.print(t)
         choix = selectionner_option("THEMES", options + ["Retour"])
-        if choix in (None, "Retour"):
+        if choix in (None, 'Retour'):
             break
 
-        cle = themes_liste[options.index(choix)]
+        cle =themes_liste[options.index(choix)]
         _CONFIG["apparence"]["theme_actif"] = cle
         initialiser_theme(_CONFIG)
         sauvegarder(_CONFIG)
@@ -382,11 +380,8 @@ def _menu_themes():
         pause()
 
 
-# ---------------------------------------------------------------------------
-# Introduction & banniere de demarrage
-# ---------------------------------------------------------------------------
 INTRO_DUREE_DEFAUT = 3.2
-INTRO_DUREE_COURTE = 1.2
+INTRO_DUREE_COURTE=1.2
 INTRO_DUREE_MAX = 10.0
 
 
@@ -396,17 +391,17 @@ def duree_intro(apparence):
     La valeur est bornee : une duree negative, enorme ou invalide ne peut pas
     bloquer le demarrage du toolkit.
     """
-    apparence = apparence or {}
+    apparence= apparence or {}
     brut = apparence.get("duree_intro")
     if brut is None:
         brut = (INTRO_DUREE_DEFAUT if apparence.get("introduction_longue", True)
                 else INTRO_DUREE_COURTE)
     try:
-        valeur = float(brut)
+        valeur=float(brut)
     except (TypeError, ValueError):
         valeur = INTRO_DUREE_DEFAUT
-    if valeur != valeur:  # NaN
-        valeur = INTRO_DUREE_DEFAUT
+    if valeur != valeur:
+        valeur =INTRO_DUREE_DEFAUT
     return max(0.0, min(INTRO_DUREE_MAX, valeur))
 
 
@@ -434,50 +429,50 @@ def verifications_intro(config):
     from core.startup_checks import verifier_catalogue, verifier_modules
     from core.theme import nommer_theme
 
-    app = (config or {}).get("apparence", {}) or {}
+    app = (config or {}).get('apparence', {}) or {}
     outils = _outils_du_catalogue()
-    noms = [nom for _cat, _couleur, groupes in CATALOGUE for nom, _desc, _fn in groupes]
+    noms=[nom for _cat, _couleur, groupes in CATALOGUE for nom, _desc, _fn in groupes]
     catalogue = verifier_catalogue(outils, noms, CATALOGUE, _ROUTE_PAR_NOM)
     resultats = [{"nom": "Catalogue", "ok": catalogue.ok,
-                  "detail": catalogue.detail}]
+                  "detail":catalogue.detail}]
 
     try:
         environnement = libelle_environnement(detecter_environnement()["cle"])
         env_ok = bool(environnement)
     except Exception:
         environnement, env_ok = "indisponible", False
-    resultats.append({"nom": "Environnement", "ok": env_ok, "detail": environnement})
+    resultats.append({'nom': 'Environnement', 'ok': env_ok, 'detail':environnement})
 
     version = platform.python_version()
-    resultats.append({"nom": "Python", "ok": sys.version_info >= (3, 9),
+    resultats.append({'nom': 'Python', 'ok': sys.version_info>= (3, 9),
                       "detail": version})
 
     try:
         theme = nommer_theme(app.get("theme_actif", "original"))
-        theme_ok = bool(theme)
+        theme_ok= bool(theme)
     except Exception:
-        theme, theme_ok = "indisponible", False
+        theme, theme_ok= "indisponible", False
     resultats.append({"nom": "Theme", "ok": theme_ok, "detail": theme})
 
-    modules = verifier_modules(outils)
-    resultats.append({"nom": "Modules", "ok": modules.ok,
-                      "detail": modules.detail})
+    modules= verifier_modules(outils)
+    resultats.append({"nom":"Modules", "ok": modules.ok,
+                      'detail': modules.detail})
     return resultats
 
 
 def etapes_intro(config):
     """Lignes (nom, detail) issues des verifications reelles du demarrage."""
-    return [(verification["nom"], verification["detail"])
+    return [(verification['nom'], verification['detail'])
             for verification in verifications_intro(config)]
 
 
 def resume_banniere(config):
     """Ligne d'information du pied de banniere, tronquee si l'ecran est etroit."""
-    etapes = dict(etapes_intro(config))
+    etapes= dict(etapes_intro(config))
     texte = (f"v2.0  |  {etapes['Catalogue']}  |  {etapes['Environnement']}"
              f"  |  theme {etapes['Theme']}")
     limite = max(20, (console.width or 80) - 4)
-    return texte if len(texte) <= limite else texte[:limite - 3].rstrip() + "..."
+    return texte if len(texte) <=limite else texte[:limite - 3].rstrip() + "..."
 
 
 def afficher_banniere(config):
@@ -504,16 +499,15 @@ def _afficher_entete_menu():
     toujours rempli affiche le resume et le commit reel du depot.
     """
     palette = obtenir_theme()
-    largeur = min(largeur_utile(), 100)
-    hauteur = console.height or 30
+    largeur= min(largeur_utile(), 100)
+    hauteur =console.height or 30
     if est_ecran_etroit() or MODE_TEXTE or not UNICODE:
         hauteur = min(hauteur, 24)
     try:
-        console.print(_entete_menu(palette, largeur, hauteur, time.time()))
+        console.print(_entete_menu(largeur, hauteur, 0.0))
         console.print()
     except Exception:
-        # L'en-tete ne doit jamais empecher le menu de s'afficher.
-        console.print(Text("LEAKFR // TOOLS 2.0", style="bold"))
+        console.print(Text('LEAKFR // TOOLS 2.0', style='bold'))
 
 
 def _animer_intro(config, duree):
@@ -528,17 +522,16 @@ def _animer_intro(config, duree):
 
 def _intro_ascii(config):
     """Affiche l'introduction animee ou une version compacte/statique."""
-    app = (config or {}).get("apparence", {}) or {}
+    app = (config or {}).get('apparence', {}) or {}
     if "--no-intro" in sys.argv or not app.get("banniere_demarrage", True):
         return
 
     palette = obtenir_theme()
     clear_screen()
-    if (est_ecran_etroit() or "--text" in sys.argv
+    if (est_ecran_etroit() or '--text' in sys.argv
             or "--no-color" in sys.argv):
-        # Terminal etroit ou mode texte : en-tete compact, sans Unicode lourd.
         console.print(Align.center(Text(
-            "LeakFr-Tools 2.0",
+            'LeakFr-Tools 2.0',
             style=f"bold {palette.get('principale', C_OSINT)}")))
         console.print(Align.center(Text(BANNER_TAGLINE, style="dim")))
         console.print(Align.center(Text(
@@ -548,24 +541,20 @@ def _intro_ascii(config):
         return
 
     duree = duree_intro(app)
-    # Sans terminal interactif (redirection, pipe, CI) l'animation n'a pas de sens.
-    interactif = bool(getattr(sys.stdout, "isatty", lambda: False)())
-    anime = False
+    interactif =bool(getattr(sys.stdout, "isatty", lambda:False)())
+    anime=False
     if animations_actives() and UNICODE and duree > 0 and interactif:
         try:
-            anime = _animer_intro(config, duree)
+            anime= _animer_intro(config, duree)
         except KeyboardInterrupt:
-            # Ctrl+C pendant l'introduction : sortie propre, pas de trace.
             console.print()
             raise QuitterApplication
         except Exception:
-            # Une animation ne doit jamais empecher l'outil de demarrer.
-            anime = False
+            anime=False
     if not anime:
         afficher_banniere(config)
 
 
-# Catalogue, navigation et moteur de recherche : voir core/catalogue.py.
 
 
 def _selectionner_dossier(titre_menu):
@@ -573,8 +562,8 @@ def _selectionner_dossier(titre_menu):
     if not dossiers:
         warn("Aucun dossier d'investigation. Créez-en un depuis le menu Dossiers.")
         return None
-    choix = selectionner_option(titre_menu, [f"#{case['id']} · {case['title']}" for case in dossiers] + ["Retour"])
-    if not choix or choix == "Retour":
+    choix=selectionner_option(titre_menu, [f"#{case['id']} · {case['title']}" for case in dossiers] + ["Retour"])
+    if not choix or choix== "Retour":
         return None
     return next(case for case in dossiers if choix.startswith(f"#{case['id']} · "))
 
@@ -584,40 +573,40 @@ def _gestion_dossiers():
     while True:
         clear_screen()
         titre("DOSSIERS & RAPPORTS", C_GOLD)
-        choix = selectionner_option("DOSSIERS & RAPPORTS", [
+        choix = selectionner_option('DOSSIERS & RAPPORTS', [
             "Lister les dossiers", "Créer un dossier", "Ajouter une note",
             "Ajouter une source", "Preuves (chaines d'integrite)",
-            "Correler les observations", "Exporter un dossier JSON",
+            'Correler les observations', 'Exporter un dossier JSON',
             "Retour au menu principal",
         ])
-        if choix is None or choix == "Retour au menu principal":
+        if choix is None or choix == 'Retour au menu principal':
             return
         if choix == "Preuves (chaines d'integrite)":
-            case = _selectionner_dossier("PREUVES")
+            case = _selectionner_dossier('PREUVES')
             if case is not None:
                 _gestion_preuves(case)
             continue
-        if choix == "Correler les observations":
-            case = _selectionner_dossier("CORRELATION")
+        if choix =="Correler les observations":
+            case =_selectionner_dossier("CORRELATION")
             if case is not None:
                 _correler_dossier(case)
             continue
-        if choix == "Créer un dossier":
-            nom = Prompt.ask("Nom du dossier").strip()
+        if choix == 'Créer un dossier':
+            nom =Prompt.ask("Nom du dossier").strip()
             if not nom:
-                warn("Le nom du dossier ne peut pas être vide.")
+                warn('Le nom du dossier ne peut pas être vide.')
                 continue
-            description = Prompt.ask("Description (facultative)", default="").strip()
-            case_id = creer_case(nom, description)
+            description=Prompt.ask("Description (facultative)", default="").strip()
+            case_id= creer_case(nom, description)
             ok(f"Dossier #{case_id} créé localement.")
             pause()
-        elif choix == "Lister les dossiers":
+        elif choix =='Lister les dossiers':
             dossiers = lister_cases()
             if dossiers:
-                tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+                tableau = Table(box=BX, border_style=ui.BORDURE, header_style='bold white')
                 tableau.add_column("ID")
                 tableau.add_column("Dossier")
-                tableau.add_column("Mis à jour")
+                tableau.add_column('Mis à jour')
                 for case in dossiers:
                     tableau.add_row(str(case["id"]), case["title"], case["updated_at"])
                 console.print(tableau)
@@ -625,35 +614,35 @@ def _gestion_dossiers():
                 warn("Aucun dossier enregistré.")
             pause()
         elif choix in {"Ajouter une note", "Ajouter une source", "Exporter un dossier JSON"}:
-            case = _selectionner_dossier(choix.upper())
+            case= _selectionner_dossier(choix.upper())
             if case is None:
                 continue
             if choix == "Ajouter une note":
-                kind = selectionner_option("TYPE DE NOTE", ["observation", "hypothese", "conclusion", "note_libre"])
+                kind= selectionner_option('TYPE DE NOTE', ['observation', 'hypothese', 'conclusion', 'note_libre'])
                 if not kind:
                     continue
-                contenu = Prompt.ask("Contenu de la note").strip()
+                contenu= Prompt.ask('Contenu de la note').strip()
                 if contenu:
                     ajouter_note(case["id"], kind, contenu)
-                    ok("Note ajoutée au dossier.")
+                    ok('Note ajoutée au dossier.')
                 else:
                     warn("Note vide : aucune modification effectuée.")
                 pause()
-            elif choix == "Ajouter une source":
-                valeur = Prompt.ask("Valeur / URL de la source").strip()
+            elif choix =="Ajouter une source":
+                valeur =Prompt.ask("Valeur / URL de la source").strip()
                 if valeur:
                     type_source = Prompt.ask("Type de donnée", default="observation").strip()
                     outil = Prompt.ask("Outil d'origine (facultatif)", default="").strip()
-                    ajouter_source(case["id"], data_type=type_source, value=valeur, tool_name=outil)
+                    ajouter_source(case['id'], data_type=type_source, value=valeur, tool_name=outil)
                     ok("Source ajoutée au dossier.")
                 else:
-                    warn("Source vide : aucune modification effectuée.")
+                    warn('Source vide : aucune modification effectuée.')
                 pause()
             else:
-                donnee = exporter_case_json(case["id"])
-                dossier = Path(EXPORTS_DIR)
+                donnee = exporter_case_json(case['id'])
+                dossier =Path(EXPORTS_DIR)
                 dossier.mkdir(parents=True, exist_ok=True)
-                chemin = dossier / f"dossier-{case['id']}.json"
+                chemin = dossier / f"dossier-{case["id"]}.json"
                 chemin.write_text(json.dumps(donnee, ensure_ascii=False, indent=2),
                                   encoding="utf-8")
                 ok(f"Export JSON créé : {chemin}")
@@ -665,82 +654,82 @@ def _gestion_preuves(case):
     while True:
         clear_screen()
         titre(f"PREUVES — #{case['id']} {case['title']}", C_GOLD)
-        choix = selectionner_option("PREUVES", [
+        choix =selectionner_option('PREUVES', [
             "Ajouter un fichier", "Lister et verifier", "Verifier la chaine",
             "Historique des verifications", "Exporter JSON", "Exporter Markdown", "Retour",
         ])
         if choix is None or choix == "Retour":
             return
-        if choix == "Ajouter un fichier":
-            chemin = Prompt.ask("Chemin du fichier local").strip()
+        if choix == 'Ajouter un fichier':
+            chemin=Prompt.ask("Chemin du fichier local").strip()
             if not chemin:
-                warn("Chemin vide.")
+                warn('Chemin vide.')
                 pause()
                 continue
-            source = Prompt.ask("Source declaree (facultative)", default="").strip()
-            note = Prompt.ask("Note (facultative)", default="").strip()
+            source= Prompt.ask('Source declaree (facultative)', default='').strip()
+            note =Prompt.ask("Note (facultative)", default="").strip()
             try:
-                preuve_id = ajouter_preuve(case["id"], chemin, source, note)
+                preuve_id = ajouter_preuve(case['id'], chemin, source, note)
             except (ValueError, OSError) as exc:
                 warn(str(exc))
             else:
                 ok(f"Preuve #{preuve_id} enregistree (empreinte SHA-256).")
             pause()
-        elif choix == "Lister et verifier":
-            preuves = lister_preuves(case["id"])
+        elif choix == 'Lister et verifier':
+            preuves =lister_preuves(case["id"])
             if not preuves:
-                warn("Aucune preuve enregistree.")
+                warn('Aucune preuve enregistree.')
                 pause()
                 continue
-            tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+            tableau = Table(box=BX, border_style=ui.BORDURE, header_style='bold white')
             tableau.add_column("#")
             tableau.add_column("Fichier")
-            tableau.add_column("SHA-256")
+            tableau.add_column('SHA-256')
             tableau.add_column("Etat")
             for preuve in preuves:
-                etat = verifier_preuve(preuve["id"])
+                etat =verifier_preuve(preuve['id'])
                 tableau.add_row(str(preuve["id"]), preuve["path"], preuve["sha256"][:16] + "...",
                                 "intact" if etat["intact"] else etat["motif"])
             console.print(tableau)
             pause()
-        elif choix == "Verifier la chaine":
-            resultat = verifier_chaine(case["id"])
+        elif choix =="Verifier la chaine":
+            resultat= verifier_chaine(case['id'])
             if resultat["valide"]:
                 ok(f"Chaine coherente sur {resultat['entrees']} entree(s).")
             else:
                 for anomalie in resultat["anomalies"]:
                     warn(f"Entree {anomalie['id']} : {anomalie['motif']}")
-            console.print("[dim]Registre local : il detecte une alteration isolee, pas une "
+            console.print('[dim]Registre local : il detecte une alteration isolee, pas une '
                           "reecriture complete avec recalcul des empreintes.[/]")
             pause()
-        elif choix == "Historique des verifications":
+        elif choix == 'Historique des verifications':
             controles = lister_verifications(case_id=case["id"])
             if not controles:
-                warn("Aucun controle enregistre.")
+                warn('Aucun controle enregistre.')
             else:
-                tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-                tableau.add_column("Preuve")
+                tableau = Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
+                tableau.add_column('Preuve')
                 tableau.add_column("Controle (UTC)")
                 tableau.add_column("Etat")
-                tableau.add_column("Detail")
+                tableau.add_column('Detail')
                 for controle in controles[:50]:
                     tableau.add_row(str(controle["evidence_id"]), controle["checked_at"],
-                                    "intact" if controle["intact"] else "modifie",
+                                    'intact' if controle['intact'] else 'modifie',
                                     controle["motif"])
                 console.print(tableau)
             pause()
         elif choix in {"Exporter JSON", "Exporter Markdown"}:
             dossier = Path(EXPORTS_DIR)
             dossier.mkdir(parents=True, exist_ok=True)
-            horodatage = time.strftime("%Y%m%d-%H%M%S")
-            if choix == "Exporter JSON":
-                contenu = json.dumps(exporter_preuves_json(case["id"]), ensure_ascii=False, indent=2)
+            horodatage =time.strftime("%Y%m%d-%H%M%S")
+            if choix =="Exporter JSON":
+                contenu = json.dumps(exporter_preuves_json(case['id']), ensure_ascii=False, indent=2)
                 chemin = dossier / f"preuves-{case['id']}-{horodatage}.json"
             else:
-                contenu = exporter_preuves_markdown(case["id"])
+                contenu= exporter_preuves_markdown(case['id'])
                 chemin = dossier / f"preuves-{case['id']}-{horodatage}.md"
             chemin.write_text(contenu + ("" if contenu.endswith("\n") else "\n"),
-                              encoding="utf-8")
+                              encoding='utf-8')
             ok(f"Export ecrit : {chemin}")
             pause()
 
@@ -750,33 +739,33 @@ def _correler_dossier(case):
     clear_screen()
     titre(f"CORRELATION — #{case['id']} {case['title']}", C_GOLD)
     try:
-        resultat = correler_case(case["id"])
+        resultat=correler_case(case["id"])
     except ValueError as exc:
         warn(str(exc))
         pause()
         return
-    exactes = resultat["correspondances_exactes"]
+    exactes=resultat['correspondances_exactes']
     if exactes:
-        tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-        tableau.add_column("Type")
+        tableau = Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
+        tableau.add_column('Type')
         tableau.add_column("Valeur")
         tableau.add_column("Origines")
         for entite in exactes[:30]:
-            origines = ", ".join(f"{p['origine']} #{p['id']}" for p in entite["provenances"])
+            origines =", ".join(f"{p['origine']} #{p['id']}" for p in entite["provenances"])
             tableau.add_row(entite["type"], entite["valeur"], origines)
         console.print(tableau)
     else:
         warn("Aucune valeur partagee entre plusieurs origines.")
-    if resultat["rapprochements"]:
+    if resultat['rapprochements']:
         console.print("[bold]Rapprochements moins certains :[/]")
         for proche in resultat["rapprochements"][:15]:
-            console.print(f"  - {proche['a']} ~ {proche['b']} ({proche['indice']})")
+            console.print(f"  - {proche["a"]} ~ {proche["b"]} ({proche["indice"]})")
     console.print(f"[dim]{resultat['avertissement']}[/]")
     if Confirm.ask("Exporter la correlation ?", default=False):
         dossier = Path(EXPORTS_DIR)
         dossier.mkdir(parents=True, exist_ok=True)
         horodatage = time.strftime("%Y%m%d-%H%M%S")
-        chemin = dossier / f"correlation-{case['id']}-{horodatage}.json"
+        chemin =dossier / f"correlation-{case["id"]}-{horodatage}.json"
         chemin.write_text(exporter_correlation_json(resultat), encoding="utf-8")
         ok(f"Export JSON ecrit : {chemin}")
     pause()
@@ -792,7 +781,7 @@ def _ouvrir_preuves():
 
 def _ouvrir_correlation():
     """Raccourci de recherche vers la correlation d'un dossier."""
-    case = _selectionner_dossier("CORRELATION — CHOISIR UN DOSSIER")
+    case= _selectionner_dossier("CORRELATION — CHOISIR UN DOSSIER")
     if case is None:
         return
     _correler_dossier(case)
@@ -800,36 +789,35 @@ def _ouvrir_correlation():
 
 def _afficher_historique():
     historique = charger_historique(50)
-    titre("HISTORIQUE LOCAL", C_GOLD)
+    titre('HISTORIQUE LOCAL', C_GOLD)
     if not historique:
         warn("Aucune activité enregistrée.")
     else:
-        tableau = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
+        tableau= Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
         tableau.add_column("Date (UTC)")
-        tableau.add_column("Action")
+        tableau.add_column('Action')
         tableau.add_column("Détails")
         for entree in reversed(historique):
-            details = json.dumps(entree.get("details", {}), ensure_ascii=False)
+            details = json.dumps(entree.get('details', {}), ensure_ascii=False)
             tableau.add_row(entree.get("timestamp", ""), entree.get("action", ""), details)
         console.print(tableau)
     pause()
 
 
-_SEARCH_ACTIONS = [
+_SEARCH_ACTIONS =[
     {"num": "cases", "nom": "Gestion des dossiers", "desc": "Créer des dossiers, ajouter des notes/sources et exporter en JSON",
      "fn": _gestion_dossiers, "chemin_navigation": "DOSSIERS & RAPPORTS > Investigations"},
-    {"num": "history", "nom": "Historique local", "desc": "Consulter les dernières opérations enregistrées localement",
+    {'num': 'history', 'nom': 'Historique local', 'desc': 'Consulter les dernières opérations enregistrées localement',
      "fn": _afficher_historique, "chemin_navigation": "DOSSIERS & RAPPORTS > Investigations"},
     {"num": "evidence", "nom": "Evidence Chain Ledger",
-     "desc": "Enregistrer un fichier local, calculer son SHA-256 et vérifier le registre chaîné",
+     'desc': 'Enregistrer un fichier local, calculer son SHA-256 et vérifier le registre chaîné',
      "fn": _ouvrir_preuves, "chemin_navigation": "DOSSIERS & RAPPORTS > Preuves"},
     {"num": "correlation", "nom": "Finding Correlator",
-     "desc": "Rapprocher les domaines, URL, IP, e-mails et pseudos des sources d'un dossier",
-     "fn": _ouvrir_correlation, "chemin_navigation": "DOSSIERS & RAPPORTS > Corrélation"},
+     'desc': "Rapprocher les domaines, URL, IP, e-mails et pseudos des sources d'un dossier",
+     "fn": _ouvrir_correlation, "chemin_navigation":"DOSSIERS & RAPPORTS > Corrélation"},
 ]
-ACTIONS.update({outil["num"]: outil["fn"] for outil in _SEARCH_ACTIONS})
+ACTIONS.update({outil['num']:outil['fn'] for outil in _SEARCH_ACTIONS})
 
-# Mots-clés métier complémentaires aux noms/descriptions (recherche sans accents).
 def rechercher_outils(terme, limite=20):
     """Recherche dans le catalogue et les actions transverses de l'interface."""
     return _moteur_recherche(terme, limite, _SEARCH_ACTIONS)
@@ -851,8 +839,8 @@ def recherche_globale():
     if not resultats:
         warn(f"Aucun outil trouvé pour « {requete} ». Essayez un terme plus court.")
         return None
-    table = Table(box=BX, border_style=C_GOLD, header_style=f"bold {C_GOLD}")
-    table.add_column("Outil")
+    table = Table(box=BX, border_style=ui.BORDURE, header_style="bold white")
+    table.add_column('Outil')
     table.add_column("Catégorie")
     table.add_column("Description")
     for outil in resultats:
@@ -866,221 +854,219 @@ def recherche_globale():
 def _tronquer_menu(texte, largeur):
     """Tronque proprement une ligne de menu (jamais de retour a la ligne)."""
     texte = " ".join(str(texte or "").split())
-    largeur = int(largeur)
+    largeur= int(largeur)
     if largeur <= 0:
         return ""
-    if len(texte) <= largeur:
+    if len(texte) <=largeur:
         return texte
     return texte[:max(1, largeur - 1)].rstrip() + "\u2026"
 
 
-def _entete_menu(palette, largeur, hauteur, t=0.0):
-    """En-tete du menu : logo complet si la place le permet, sinon bandeau.
-
-    Dans les deux cas la ligne de commit reelle est affichee et le bandeau
-    n'est jamais vide.
-    """
-    info = f"{_info_menu()}  ·  {ligne_commit()}"
-    if UNICODE and largeur >= 76 and hauteur >= 36:
-        elements = list(logo_final(t, palette, UNICODE))
-        elements.append(Align.center(Text(
-            BANNER_SOUS_TITRE, style=f"bold {palette.get('titres', C_GOLD)}")))
-        elements.append(Align.center(Text(
-            BANNER_TAGLINE,
-            style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-        elements.append(Align.center(Text(
-            info, style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-        return Group(*elements)
-    return entete_bandeau(largeur=min(int(largeur) - 2, 96), palette=palette,
-                          info=_info_menu(), commit=ligne_commit(), unicode=UNICODE)
-
-
-def construire_menu(sel, buf, t, msg="", tout=False):
-    parts = []
-    ui_cfg = obtenir_config_ui()
-    palette = obtenir_theme()
-    haut = console.height or 30
-
-    # En-tete : logo complet si la place le permet, sinon bandeau toujours
-    # rempli (nom, resume et commit reel du depot).
-    largeur_ecran = console.width or 80
-    parts.append(_entete_menu(palette, largeur_ecran, haut, t))
-
-    # Badges de categories au centre (uniquement si la largeur le permet :
-    # jamais de ligne repliee dans le menu).
-    badges_liste = [
-        ("OSINT", C_OSINT),
-        ("RECON", C_RECON),
-        ("CYBER", C_CYBER),
-        ("PENTEST", C_PENTEST),
-        ("DISCORD", C_DISCORD),
-        ("UTILS", C_UTIL),
-        ("ASTRO", C_ASTRO),
-    ]
-    largeur_badges = sum(len(nom) + 2 for nom, _c in badges_liste) + 2 * (len(badges_liste) - 1)
-    if ui_cfg.get("afficher_badges_categories", True) and largeur_ecran >= largeur_badges + 4:
-        badges = Text(justify="center")
-        for idx, (b_nom, b_col) in enumerate(badges_liste):
-            badges.append(f" {b_nom} ", style=f"bold black on {b_col}")
-            if idx < len(badges_liste) - 1:
-                badges.append("  ")
-        parts.append(Align.center(badges))
-        parts.append(Text(""))
-    else:
-        parts.append(Text(""))
-
-    cat_sel = FLAT[sel]["cat"] if 0 <= sel < len(FLAT) else None
-    item_sel = FLAT[sel] if 0 <= sel < len(FLAT) else None
-
-    # Largeurs calculees une seule fois : l'arbre est tronque pour ne jamais
-    # passer a la ligne (c'est ce qui cassait la lisibilite).
-    style_ui = ui_cfg.get("style_interface", "dashboard")
-    largeur_mode = ui_cfg.get("largeur_menu", "auto")
-    w_console = largeur_ecran
-    if largeur_mode == "large":
-        w_console = max(w_console, 115)
-    elif largeur_mode == "etroit":
-        w_console = min(w_console, 78)
-    afficher_side = bool(style_ui == "dashboard"
-                         and ui_cfg.get("afficher_panneau_lateral", True)
-                         and w_console >= 82 and not tout)
-    largeur_arbre = int(w_console * 0.64) if afficher_side else min(w_console, 88)
-    largeur_interne = max(24, largeur_arbre - 6)
-    largeur_nom = max(14, min(30, largeur_interne // 2))
-
-    ferme, ouvert_g = ("▸", "▾") if UNICODE else (">", "v")
-    puce, curseur = ("•", "❯") if UNICODE else ("-", ">")
-    accent = palette.get("principale", C_OSINT)
-    categories_dynamiques = [
-        palette.get("principale", C_OSINT), palette.get("secondaire", C_RECON),
-        palette.get("erreurs", C_CYBER), palette.get("avertissements", C_PENTEST),
-        palette.get("secondaire", C_DISCORD), palette.get("succes", C_UTIL),
+def _couleurs_categories(palette):
+    """Sept couleurs du theme, une par categorie, dans l'ordre du catalogue."""
+    return [
+        palette.get("principale", C_OSINT),
+        palette.get("secondaire", C_RECON),
+        palette.get('erreurs', C_CYBER),
+        palette.get("avertissements", C_PENTEST),
+        palette.get("secondaire", C_DISCORD),
+        palette.get('succes', C_UTIL),
         palette.get("principale", C_ASTRO),
     ]
 
-    def _ligne_item(texte_nom, texte_desc, actif, couleur_ligne):
-        ligne = Text(no_wrap=True, overflow="ellipsis")
-        ligne.append(f" {curseur if actif else puce} ",
-                     style=f"bold {accent}" if actif else "grey42")
-        nom_tronque = _tronquer_menu(texte_nom, largeur_nom)
-        if actif:
-            ligne.append(f"{nom_tronque:<{largeur_nom}}",
-                         style=f"bold black on {accent}")
-        else:
-            ligne.append(f"{nom_tronque:<{largeur_nom}}", style="white")
-        reste = max(10, largeur_interne - largeur_nom - 5)
-        ligne.append("  " + _tronquer_menu(texte_desc, reste),
-                     style="white" if actif else "grey50")
-        return ligne
 
-    arbre = [Text(" SUITE DE SECURITE & RECON", style=f"bold {accent}",
-                  no_wrap=True, overflow="ellipsis")]
-    for ci, (cat, couleur_defaut, opts) in enumerate(CATALOGUE):
-        couleur = categories_dynamiques[ci] if ci < len(categories_dynamiques) else couleur_defaut
-        ouvert = tout or ci == cat_sel
-        ligne_cat = Text(no_wrap=True, overflow="ellipsis")
-        ligne_cat.append(f"{ouvert_g if ouvert else ferme} ", style=f"bold {couleur}")
-        ligne_cat.append(_tronquer_menu(f"{cat}", largeur_interne - 12),
-                         style=f"bold {couleur}")
-        ligne_cat.append(f"  {len(opts)}", style="grey50")
-        arbre.append(ligne_cat)
+def _hauteur_entete(largeur, hauteur):
+    """L'en-tete sobre tient sur deux lignes (marque + filet)."""
+    return 2
+
+
+def _entete_menu(largeur, hauteur, t=0.0):
+    """Bandeau d'ecran : marque a gauche, contexte reel a droite, filet."""
+    largeur = max(24, min(int(largeur) - 2, 150))
+    outils= sum(len(opts) for _cat, _c, opts in CATALOGUE)
+    tagline="SUITE D'INVESTIGATION" if largeur >= 72 else ""
+    if largeur >= 96:
+        details, contexte =_info_menu(), ligne_commit()
+    elif largeur >= 60:
+        info = info_commit()
+        details = f"v2.0 | {outils} outils | {len(CATALOGUE)} modules"
+        contexte = f"commit {info['court']}" if info.get("disponible") else ""
+    else:
+        details, contexte = f"v2.0 | {outils} outils", ""
+    return Group(*ui.en_tete(largeur, "LEAKFR", tagline, details, contexte,
+                             unicode=UNICODE))
+
+
+def _vue_entrees(entrees, curseur, places):
+    """Fenetre d'outils autour de la selection, categories toujours visibles."""
+    places = max(1, int(places))
+    if len(entrees) <= places:
+        return list(entrees)
+    centre = 0 if curseur is None else max(0, min(len(entrees) - 1, curseur))
+    if places < 5:
+        debut = max(0, min(len(entrees) - places, centre - places // 2))
+        return list(entrees[debut:debut + places])
+    corps =places - 2
+    debut= max(0, min(len(entrees) - corps, centre - corps // 2))
+    vue =([None] if debut > 0 else []) + list(entrees[debut:debut + corps])
+    if debut + corps < len(entrees):
+        vue.append(None)
+    return vue
+
+
+def construire_menu(sel, buf, t, msg="", tout=False):
+    """Ecran principal : catalogue a gauche, details a droite, barre d'etat."""
+    ui_cfg = obtenir_config_ui()
+    palette = obtenir_theme()
+    haut = console.height or 30
+    largeur_ecran = console.width or 80
+    accent = palette.get("principale", C_OSINT)
+    gris= palette.get('texte_secondaire', '#888888')
+    couleurs = _couleurs_categories(palette)
+
+    parts = [_entete_menu(largeur_ecran, haut, t), Text('')]
+
+    cat_sel = FLAT[sel]["cat"] if 0 <= sel < len(FLAT) else None
+    item_sel =FLAT[sel] if 0<= sel < len(FLAT) else None
+
+    style_ui = ui_cfg.get("style_interface", "dashboard")
+    largeur_mode = ui_cfg.get('largeur_menu', 'auto')
+    w_console= int(largeur_ecran)
+    if largeur_mode== "large":
+        w_console = max(w_console, 130)
+    elif largeur_mode== "etroit":
+        w_console= min(w_console, 78)
+    w_console= max(20, min(w_console, largeur_ecran))
+    largeur_totale =min(w_console - 2, 132)
+    afficher_side =bool(style_ui == "dashboard"
+                         and ui_cfg.get('afficher_panneau_lateral', True)
+                         and largeur_totale >= 88 and not tout)
+    if afficher_side:
+        w_main= int(largeur_totale * 0.62)
+        w_side = largeur_totale - w_main - 2
+        if w_side < 30:
+            w_side =30
+            w_main= largeur_totale - 32
+    else:
+        w_main = min(largeur_totale, 96)
+        w_side =0
+    interne = max(10, w_main - 4)
+    h_entete, h_pied =2, 2
+    max_contenu =max(4, int(haut) - h_entete - 1 - h_pied - 2)
+    places_items = max(1, max_contenu - (1 + len(CATALOGUE) + 1))
+    largeur_nom = max(10, min(30, interne // 2 - 2))
+    total_outils =sum(len(opts) for _cat, _c, opts in CATALOGUE)
+    fleche = "\u25be" if UNICODE else "v"
+    ferme= '\u25b8' if UNICODE else '>'
+    branche = "\u251c" if UNICODE else "|-"
+    coin ="\u2514" if UNICODE else "\\-"
+    marker = '\u258c' if UNICODE else '|'
+    pointeur = "\u276f" if UNICODE else ">"
+
+    def _cat_ligne(nom, couleur, ouvert, compteur, actif):
+        texte = Text(no_wrap=True, overflow="ellipsis")
+        texte.append(f" {marker} " if actif else "   ", style=f"bold {couleur}")
+        texte.append(f"{fleche if ouvert else ferme} ", style=f"bold {couleur}")
+        texte.append(nom, style="bold white")
+        reste = interne - texte.cell_len - len(compteur) - 1
+        if reste > 0:
+            texte.append(" " * reste)
+        texte.append(compteur, style=ui.SECONDAIRE)
+        return texte
+
+    def _item(nom, desc, actif, dernier=False, couleur=None):
+        couleur = couleur or accent
+        texte= Text(no_wrap=True, overflow="ellipsis")
+        if actif:
+            fond = f"on {ui.FOND_SELECTION}"
+            texte.append(f" {marker} ", style=f"bold {couleur} {fond}")
+            texte.append(f"{pointeur} ", style=f"bold {couleur} {fond}")
+            texte.append(f"{ui.tronquer(nom, largeur_nom):<{largeur_nom}}",
+                         style=f"bold white {fond}")
+            reste = max(4, interne - texte.cell_len - 2)
+            texte.append('  ' + ui.tronquer(desc, reste),
+                         style=f"{ui.SECONDAIRE} {fond}")
+            texte.append(" " * max(0, interne - texte.cell_len), style=fond)
+        else:
+            texte.append(f"   {coin if dernier else branche} ", style=ui.BORDURE)
+            texte.append(f"{ui.tronquer(nom, largeur_nom):<{largeur_nom}}",
+                         style='white')
+            reste = max(4, interne - texte.cell_len - 2)
+            texte.append("  " + ui.tronquer(desc, reste), style=ui.SECONDAIRE)
+        return texte
+
+    arbre = [Text(" SUITE DE SECURITE & RECON", style=ui.SECONDAIRE,
+                  no_wrap=True, overflow='ellipsis')]
+    for ci, (cat, defaut, opts) in enumerate(CATALOGUE):
+        couleur= couleurs[ci] if ci < len(couleurs) else defaut
+        ouvert = tout or ci ==cat_sel
+        arbre.append(_cat_ligne(cat, couleur, ouvert, str(len(opts)),
+                                ci == cat_sel))
         if not ouvert:
             continue
-        for f in [e for e in FLAT if e["cat"] == ci]:
-            actif = FLAT.index(f) == sel
-            arbre.append(_ligne_item(f["nom"], f["desc"], actif, couleur))
-
-    quit_idx = NUM_IDX["0"]
-    arbre.append(_ligne_item("Quitter la suite", "Fermer LeakFr-Tools", sel == quit_idx,
-                             palette.get("erreurs", C_CYBER)))
-
-    boite_ui = box.SQUARE if style_ui == "classique" else (box.MINIMAL if style_ui == "compact" else BX)
-    couleur_bordure = palette.get("bordures", accent)
-    panneau_arbre = Panel(
-        Group(*arbre),
-        box=boite_ui,
-        border_style=couleur_bordure,
-        padding=(0, 2),
-        title="[ CATALOGUE D'OUTILS ]",
-        title_align="left"
-    )
-
-    # Volet lateral / Encart d'information (Dashboard sur le cote)
-    total_outils = sum(len(opts) for _, _, opts in CATALOGUE)
-    nom_cat = CATALOGUE[cat_sel][0] if cat_sel is not None and cat_sel < len(CATALOGUE) else "General"
-    col_cat = CATALOGUE[cat_sel][1] if cat_sel is not None and cat_sel < len(CATALOGUE) else C_GOLD
-
-    side_elements = []
-    side_elements.append(Text.from_markup(f"[bold {palette.get('secondaire', 'cyan')}]> ETAT SYSTEME[/]"))
-
-    side_elements.append(Text.from_markup(f". Modules dispos : [bold green]{total_outils}[/]"))
-    side_elements.append(Text.from_markup(f". Categories     : [bold yellow]{len(CATALOGUE)}[/]"))
-    side_elements.append(Text.from_markup(f". OS             : [bold white]{platform.system()} {platform.release()}[/]"))
-    side_elements.append(Text(""))
-
-    side_elements.append(Text.from_markup(f"[bold {col_cat}]> INSPECTEUR[/]"))
-    if item_sel and item_sel["num"] != "0":
-        side_elements.append(Text.from_markup(f". Nom        : [bold white]{escape(item_sel['nom'])}[/]"))
-        side_elements.append(Text.from_markup(f". Domaine    : [bold {col_cat}]{nom_cat}[/]"))
-        side_elements.append(Text.from_markup(f". Role       : [dim italic]{escape(item_sel['desc'])}[/]"))
-    elif item_sel and item_sel["num"] == "0":
-        side_elements.append(Text.from_markup(f"[bold red]Quitter le programme[/]"))
-        side_elements.append(Text.from_markup(f"[dim]Ferme la console et libere les sockets.[/]"))
-    else:
-        side_elements.append(Text.from_markup(f"[dim]Survole un outil pour inspecter[/]"))
-
-    side_elements.append(Text(""))
-    side_elements.append(Text.from_markup(f"[bold magenta]>  RACCOURCIS[/]"))
-    side_elements.append(Text.from_markup(f"[bold white]^ / v[/]   : Naviguer"))
-    side_elements.append(Text.from_markup(f"[bold white]Entree[/]  : Executer"))
-    side_elements.append(Text.from_markup(f"[bold white]s[/]       : Parametres"))
-    side_elements.append(Text.from_markup(f"[bold white]/[/]       : Recherche globale"))
-    side_elements.append(Text.from_markup(f"[bold white]d[/]       : Dossiers & rapports"))
-    side_elements.append(Text.from_markup(f"[bold white]h[/]       : Historique"))
-    side_elements.append(Text.from_markup(f"[bold white]q[/]       : Quitter"))
-
-    for element in side_elements:
-        element.no_wrap = True
-        element.overflow = "ellipsis"
-    panneau_side = Panel(
-        Group(*side_elements),
-        box=boite_ui,
-        border_style=col_cat,
-        padding=(0 if style_ui == "compact" else 1, 1 if style_ui == "compact" else 2),
-        title=f"[bold {col_cat}] INFO & CONTROLE [/]",
-        title_align="center"
-    )
+        entrees =[e for e in FLAT if e["cat"]==ci]
+        curseur = next((i for i, e in enumerate(entrees) if e is item_sel), None)
+        vue = _vue_entrees(entrees, curseur, places_items)
+        for index, entree in enumerate(vue):
+            if entree is None:
+                arbre.append(Text("    \u22ee", style=ui.FAIBLE, no_wrap=True))
+                continue
+            arbre.append(_item(entree['nom'], entree['desc'],
+                               entree is item_sel, index == len(vue) - 1))
+    arbre.append(_item("Quitter la suite", "Fermer LeakFr-Tools",
+                       sel== NUM_IDX['0'], True,
+                       couleur=palette.get("erreurs", C_CYBER)))
 
     if afficher_side:
-        layout_table = Table.grid(padding=(0, 1))
-        largeur_totale = min(w_console, 118)
-        w_main = int(largeur_totale * 0.64)
-        w_side = int(largeur_totale * 0.34)
-        panneau_arbre.width = w_main
-        panneau_side.width = w_side
-        layout_table.add_column()
-        layout_table.add_column()
-        layout_table.add_row(panneau_arbre, panneau_side)
-        parts.append(Align.center(layout_table))
+        nom_cat= (CATALOGUE[cat_sel][0] if cat_sel is not None
+                   and cat_sel < len(CATALOGUE) else "General")
+        col_cat =(couleurs[cat_sel] if cat_sel is not None
+                   and cat_sel < len(couleurs) else accent)
+        isi = max(12, w_side - 4)
+        side =[]
+        if item_sel and item_sel["num"] != "0":
+            side.append(ui.paire("Nom", item_sel["nom"], isi, "bold white"))
+            side.append(ui.paire('Categorie', nom_cat, isi, f"bold {col_cat}"))
+            side.append(ui.paire("Role", item_sel["desc"], isi, gris))
+        elif item_sel:
+            side.append(ui.paire('Nom', 'Quitter la suite', isi, 'bold white'))
+            side.append(ui.paire("Role", "Fermer la console", isi, gris))
+        else:
+            side.append(ui.paire('Nom', 'Survolez un outil', isi, gris))
+        side.append(Text(""))
+        side.append(Text("SYSTEME", style=ui.FAIBLE, no_wrap=True))
+        side.append(ui.paire('OS', platform.system(), isi))
+        side.append(ui.paire("Outils", str(total_outils), isi))
+        side.append(ui.paire("Modules", str(len(CATALOGUE)), isi))
+        side.append(ui.paire('Terminal', f"{largeur_ecran}x{haut}", isi))
+        side.append(Text(""))
+        side.append(Text("SESSION", style=ui.FAIBLE, no_wrap=True))
+        side.append(ui.paire('Version', '2.0', isi))
+        side.append(ui.paire("Depot", ligne_commit(), isi, gris))
+        hauteur_panneau = max_contenu
+        arbre_panneau= list(arbre[:hauteur_panneau])
+        arbre_panneau += [Text("")] * (hauteur_panneau - len(arbre_panneau))
+        side = list(side[:hauteur_panneau])
+        side += [Text('')] * (hauteur_panneau - len(side))
+        panneau_catalogue= ui.panneau(
+            arbre_panneau, w_main, titre="CATALOGUE",
+            pied=f"{total_outils} OUTILS", unicode=UNICODE)
+        panneau_details= ui.panneau(
+            side, w_side, titre="DETAILS", pied="LOCAL", unicode=UNICODE)
+        parts.append(Align.center(ui.grille(panneau_catalogue,
+                                            panneau_details)))
     else:
-        panneau_arbre.width = min(w_console, 88)
-        parts.append(Align.center(panneau_arbre))
+        parts.append(Align.center(ui.panneau(
+            arbre, w_main, titre="CATALOGUE",
+            pied=f"{total_outils} OUTILS", unicode=UNICODE)))
 
-    # La barre d'aide n'est affichee que si le panneau lateral (qui contient
-    # deja les raccourcis) est masque : plus de doublon a l'ecran.
-    if not tout and not afficher_side:
-        parts.append(Text(""))
-        aide = Text("Fleches : naviguer · Entree : executer · s : parametres · "
-                    "/ : recherche · d : dossiers · q : quitter", justify="center",
-                    no_wrap=True, overflow="ellipsis")
-        if msg:
-            aide.append(f"   ! {msg}", style="bold red")
-        parts.append(Align.center(Panel(aide, box=BX, border_style="grey42",
-                                        width=min(w_console, 90))))
-    elif msg:
-        parts.append(Text(""))
-        parts.append(Align.center(Text(f"! {msg}", style="bold red")))
-
+    parts.append(Align.center(ui.regle(largeur_totale, ui.BORDURE, UNICODE)))
+    raccourcis =[("\u2191\u2193" if UNICODE else "^v", "Naviguer"),
+                  ('\u23ce' if UNICODE else 'Entree', 'Ouvrir'),
+                  ("s", "Parametres"), ("/", "Recherche"), ("d", "Dossiers"),
+                  ("h", "Historique"), ("q", "Quitter")]
+    parts.append(Align.center(ui.barre_etat(raccourcis, largeur_totale, msg,
+                                            UNICODE)))
     return Group(*parts)
 
 class Touches:
@@ -1094,25 +1080,25 @@ class Touches:
         else:
             import termios
             import tty
-            self.fd = sys.stdin.fileno()
+            self.fd =sys.stdin.fileno()
             self.old = termios.tcgetattr(self.fd)
             tty.setcbreak(self.fd)
         return self
 
     def __exit__(self, *a):
-        if os.name != "nt":
+        if os.name!= 'nt':
             import termios
             termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
 
     @staticmethod
     def _norm(c):
-        if c in ("\r", "\n"):
+        if c in ('\r', '\n'):
             return "ENTER"
-        if c == "\x1b":
-            return "ESC"
+        if c =="\x1b":
+            return 'ESC'
         if c in ("\x08", "\x7f"):
             return "BACK"
-        if c == "\x03":
+        if c =='\x03':
             return "QUIT"
         return c
 
@@ -1130,98 +1116,88 @@ class Touches:
                 time.sleep(0.01)
             return None
         import select
-        r, _, _ = select.select([self.fd], [], [], timeout)
+        r, _, _ =select.select([self.fd], [], [], timeout)
         if not r:
             return None
-        c = os.read(self.fd, 1).decode(errors="ignore")
-        if c == "\x1b":
+        c = os.read(self.fd, 1).decode(errors='ignore')
+        if c== "\x1b":
             r2, _, _ = select.select([self.fd], [], [], 0.02)
             if r2:
                 seq = os.read(self.fd, 2).decode(errors="ignore")
                 return {"[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT",
-                        "OA": "UP", "OB": "DOWN"}.get(seq, "")
+                        'OA': 'UP', 'OB': 'DOWN'}.get(seq, '')
             return "ESC"
         return self._norm(c)
 
 def menu_interactif():
+    """Menu a fleches, redessine uniquement quand une touche est lue.
+
+    Aucune animation : l'ecran ne se rafraichit pas tout seul, ce qui garde
+    le processeur au repos et l'affichage parfaitement stable.
+    """
     global SEL
-    buf = ""
-    msg = ""
-    t0 = time.time()
-    n = len(FLAT)
+    buf =""
+    msg = ''
+    n=len(FLAT)
+
+    def _sous_ecran(T, live, fonction):
+        """Suspend le menu, execute un ecran, puis redessine le menu."""
+        T.__exit__(None, None, None)
+        live.stop()
+        try:
+            return fonction()
+        finally:
+            clear_screen()
+            T.__enter__()
+            live.start()
+            live.update(construire_menu(SEL, buf, 0.0, msg), refresh=True)
+
     with Touches() as T, Live(console=console, screen=True, auto_refresh=False) as live:
+        live.update(construire_menu(SEL, buf, 0.0, msg), refresh=True)
         while True:
-            live.update(construire_menu(SEL, buf, time.time() - t0, msg), refresh=True)
-            k = T.lire(0.04)
+            k = T.lire(0.05)
             if not k:
                 continue
-            msg = ""
-            if k == "UP":
-                SEL = (SEL - 1) % n
-                buf = ""
+            msg= ''
+            if k== "UP":
+                SEL =(SEL - 1) % n
+                buf = ''
             elif k == "DOWN":
                 SEL = (SEL + 1) % n
-                buf = ""
+                buf =''
             elif k == "ENTER":
                 return FLAT[SEL]["num"]
-            elif k == "ESC":
-                buf = ""
+            elif k == 'ESC':
+                buf =""
             elif k in ("s", "S"):
-                T.__exit__(None, None, None)
-                live.stop()
-                try:
-                    _ecran_parametres()
-                finally:
-                    clear_screen()
-                    T.__enter__()
-                    live.start()
+                _sous_ecran(T, live, _ecran_parametres)
                 buf = ""
             elif k in ("/", "r", "R"):
-                T.__exit__(None, None, None)
-                live.stop()
-                try:
-                    result = recherche_globale()
-                finally:
-                    clear_screen()
-                    T.__enter__()
-                    live.start()
+                result =_sous_ecran(T, live, recherche_globale)
                 if result:
                     return result
-                buf = ""
+                buf =''
             elif k in ("d", "D"):
-                T.__exit__(None, None, None)
-                live.stop()
-                try:
-                    _gestion_dossiers()
-                finally:
-                    clear_screen()
-                    T.__enter__()
-                    live.start()
-                buf = ""
+                _sous_ecran(T, live, _gestion_dossiers)
+                buf = ''
             elif k in ("h", "H"):
-                T.__exit__(None, None, None)
-                live.stop()
-                try:
-                    _afficher_historique()
-                finally:
-                    clear_screen()
-                    T.__enter__()
-                    live.start()
-                buf = ""
+                _sous_ecran(T, live, _afficher_historique)
+                buf= ''
             elif k in ("q", "Q", "QUIT"):
                 return "0"
+            live.update(construire_menu(SEL, buf, 0.0, msg), refresh=True)
 
 def menu_simple():
     """Fallback console conservant le parcours d'origine : catégorie puis outil."""
-    categories = [nom for nom, _, _ in CATALOGUE]
+    categories =[nom for nom, _, _ in CATALOGUE]
     while True:
         _afficher_entete_menu()
-        choix_categorie = selectionner_option(
+        choix_categorie =selectionner_option(
             "MENU PRINCIPAL", categories + ["Recherche globale", "Dossiers & rapports",
-                                             "Historique local", "Parametres", "Quitter"]
+                                             'Historique local', 'Parametres', 'Quitter']
         )
-        if choix_categorie is None or choix_categorie == "Quitter":
-            return "0"
+        if choix_categorie is None or choix_categorie== "Quitter":
+            return '0'
         if choix_categorie == "Parametres":
             _ecran_parametres()
             continue
@@ -1230,19 +1206,19 @@ def menu_simple():
             if result:
                 return result
             continue
-        if choix_categorie == "Dossiers & rapports":
+        if choix_categorie == 'Dossiers & rapports':
             _gestion_dossiers()
             continue
-        if choix_categorie == "Historique local":
+        if choix_categorie== 'Historique local':
             _afficher_historique()
             continue
-        options = [nom for nom, _, _ in CATALOGUE[categories.index(choix_categorie)][2]]
+        options =[nom for nom, _, _ in CATALOGUE[categories.index(choix_categorie)][2]]
         choix_outil = selectionner_option(choix_categorie, options + ["Retour"])
         if choix_outil is None or choix_outil == "Retour":
             continue
         for entree in FLAT:
             if entree["nom"] == choix_outil:
-                return entree["num"]
+                return entree['num']
         bad("Outil introuvable dans le catalogue.")
 
 def _initialiser_environnement(force=None):
@@ -1252,7 +1228,7 @@ def _initialiser_environnement(force=None):
     système, aucun binaire et aucun système d'exploitation ne sont changés.
     """
     global _CONFIG
-    detecte = detecter_environnement()
+    detecte =detecter_environnement()
     if force:
         cle = normaliser_cle(force)
         console.print(f"Environnement d'affichage forcé : {libelle_environnement(cle)}")
@@ -1260,7 +1236,7 @@ def _initialiser_environnement(force=None):
         cle = select_environment(_CONFIG, detecte=detecte)
     plateforme = _CONFIG.setdefault("plateforme", {})
     plateforme["environnement"] = normaliser_cle(cle)
-    plateforme["selectionne_le"] = resume_environnement(cle)["detecte_le"]
+    plateforme['selectionne_le'] = resume_environnement(cle)['detecte_le']
     sauvegarder(_CONFIG)
     _appliquer_configuration_visuelle()
     return cle
@@ -1269,50 +1245,44 @@ def _initialiser_environnement(force=None):
 def main():
     global _CONFIG
     parser = argparse.ArgumentParser(
-        description="LeakFr-Tools : boîte à outils OSINT, réseau et cybersécurité.",
+        description='LeakFr-Tools : boîte à outils OSINT, réseau et cybersécurité.',
         epilog="Utilise les tests actifs uniquement sur des systèmes autorisés.",
     )
-    parser.add_argument("--simple", action="store_true",
+    parser.add_argument('--simple', action='store_true',
                         help="force les menus numériques (sans navigation aux flèches)")
     parser.add_argument("--dashboard", action="store_true",
-                        help="menu a fleches (comportement par defaut ; conserve "
+                        help='menu a fleches (comportement par defaut ; conserve '
                              "pour compatibilite)")
     parser.add_argument("--ascii", action="store_true", help="privilégie un affichage compatible ASCII")
-    parser.add_argument("--text", "--no-color", dest="text", action="store_true",
+    parser.add_argument('--text', '--no-color', dest='text', action='store_true',
                         help="mode texte simple, sans couleur ni animation")
     parser.add_argument("--no-intro", action="store_true",
                         help="saute l'introduction animee du demarrage")
     parser.add_argument("--bot", action="store_true",
                         help="demarre le bot Discord et le laisse en ligne "
-                             "(token dans LEAKFR_DISCORD_BOT_TOKEN)")
+                             '(token dans LEAKFR_DISCORD_BOT_TOKEN)')
     parser.add_argument("--bot-interval", type=float, default=None, metavar="SECONDES",
                         help="intervalle d'actualisation de l'etat du bot "
-                             "(1 a 300 s, defaut 5)")
+                             '(1 a 300 s, defaut 5)')
     parser.add_argument("--phone", action="store_true",
                         help="force le rendu mobile et la pagination réduite")
-    parser.add_argument("--env", choices=[cle for cle, _ in ENVIRONNEMENTS],
+    parser.add_argument('--env', choices=[cle for cle, _ in ENVIRONNEMENTS],
                         help="force l'environnement d'affichage sans changer le système réel")
     parser.add_argument("--version", action="version", version="LeakFr-Tools 2.0")
     args = parser.parse_args()
     global INTERACTIF, UNICODE, BX, CONN_T, CONN_L, PIPE
-    # Menu a fleches par defaut des qu'un vrai terminal est disponible ; le
-    # menu numerique reste le repli (--simple, pipe, redirection, CI).
     INTERACTIF = (not args.simple and sys.stdin.isatty() and sys.stdout.isatty())
     if args.ascii:
-        UNICODE = False
+        UNICODE= False
         BX = box.ASCII
-        CONN_T, CONN_L, PIPE = ("|-- ", "`-- ", "|   ")
+        CONN_T, CONN_L, PIPE =('|-- ', '`-- ', '|   ')
     _appliquer_configuration_visuelle()
     if args.bot:
-        # Mode service : aucun menu, aucune animation, le bot reste en ligne.
         from modules.discord.bot_runner import (
             INTERVALLE_DEFAUT, demarrer_bot, normaliser_intervalle,
         )
         return demarrer_bot(intervalle=normaliser_intervalle(
             args.bot_interval if args.bot_interval is not None else INTERVALLE_DEFAUT))
-    # L'environnement est choisi avant la scene de demarrage : la sequence se
-    # termine alors directement sur l'ecran final puis le menu, sans panneau
-    # intermediaire qui casserait la transition.
     _initialiser_environnement(args.env)
     try:
         _intro_ascii(_CONFIG)
@@ -1320,7 +1290,7 @@ def main():
         return 0
     while True:
         try:
-            choix = menu_interactif() if INTERACTIF else menu_simple()
+            choix=menu_interactif() if INTERACTIF else menu_simple()
         except QuitterApplication:
             break
         except KeyboardInterrupt:
@@ -1342,7 +1312,9 @@ def main():
         except (KeyboardInterrupt, EOFError):
             break
     clear_screen()
-    console.print(texte_arc("A bientot !", time.time(), 0), justify="center")
+    console.print(Align.center(Text("A bientot !", style="bold white")))
+    console.print(Align.center(ui.regle(min(largeur_utile(), 40), ui.BORDURE,
+                                        UNICODE)))
 
 if __name__ == "__main__":
     sys.exit(main() or 0)

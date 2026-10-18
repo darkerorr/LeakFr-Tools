@@ -11,8 +11,8 @@ from core.config import DATA_DIR
 from modules.discord.discord_api import redact
 from modules.discord.local_store import charger_json, ecrire_json
 
-JOURNAL_FILE = Path(DATA_DIR) / "discord_panel_journal.json"
-MAX_ENTREES = 300
+JOURNAL_FILE =Path(DATA_DIR) / "discord_panel_journal.json"
+MAX_ENTREES =300
 
 
 def chemin_journal():
@@ -20,7 +20,7 @@ def chemin_journal():
 
 
 def charger_journal(path=None):
-    donnees = charger_json(path or chemin_journal(), [])
+    donnees =charger_json(path or chemin_journal(), [])
     if not isinstance(donnees, list):
         return []
     entrees = []
@@ -30,10 +30,10 @@ def charger_journal(path=None):
         entrees.append({
             "timestamp": entree.get("timestamp"),
             "action": redact(entree.get("action"))[:120],
-            "guild_id": str(entree.get("guild_id") or ""),
+            'guild_id':str(entree.get('guild_id') or ''),
             "cible": redact(entree.get("cible"))[:80],
             "resultat": entree.get("resultat"),
-            "detail": redact(entree.get("detail"))[:400],
+            'detail':redact(entree.get('detail'))[:400],
         })
     return entrees[-MAX_ENTREES:]
 
@@ -44,11 +44,11 @@ def enregistrer(action, guild_id=None, cible=None, resultat="ok", detail="",
     entrees = charger_journal(path)
     entrees.append({
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "action": redact(action, secrets)[:120],
-        "guild_id": str(guild_id or ""),
+        "action":redact(action, secrets)[:120],
+        'guild_id': str(guild_id or ''),
         "cible": redact(cible, secrets)[:80],
         "resultat": "ok" if resultat == "ok" else "erreur",
-        "detail": redact(detail, secrets)[:400],
+        'detail': redact(detail, secrets)[:400],
     })
     ecrire_json(path or chemin_journal(), entrees[-MAX_ENTREES:])
     return entrees[-1]

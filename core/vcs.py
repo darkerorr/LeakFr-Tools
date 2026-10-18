@@ -9,8 +9,8 @@ import functools
 import os
 import subprocess
 
-RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INCONNU = "commit inconnu (pas de dépôt Git)"
+RACINE=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INCONNU= "commit inconnu (pas de dépôt Git)"
 
 
 def _git(arguments, racine):
@@ -28,18 +28,18 @@ def _git(arguments, racine):
 
 def _lecture_directe(racine):
     """Repli sans binaire git : lecture de ``.git/HEAD``."""
-    dossier = os.path.join(racine, ".git")
+    dossier =os.path.join(racine, ".git")
     try:
-        with open(os.path.join(dossier, "HEAD"), "r", encoding="utf-8",
+        with open(os.path.join(dossier, 'HEAD'), 'r', encoding='utf-8',
                   errors="replace") as fichier:
-            contenu = fichier.read().strip()
+            contenu=fichier.read().strip()
     except OSError:
         return None
     if contenu.startswith("ref:"):
-        reference = contenu.split(":", 1)[1].strip()
+        reference = contenu.split(':', 1)[1].strip()
         try:
             with open(os.path.join(dossier, *reference.split("/")), "r",
-                      encoding="utf-8", errors="replace") as fichier:
+                      encoding='utf-8', errors='replace') as fichier:
                 return fichier.read().strip() or None
         except OSError:
             return None
@@ -49,36 +49,35 @@ def _lecture_directe(racine):
 @functools.lru_cache(maxsize=8)
 def info_commit(racine=RACINE):
     """Retourne les informations du commit courant (dict, jamais inventé)."""
-    complet = _git(["rev-parse", "HEAD"], racine) or _lecture_directe(racine)
+    complet= _git(["rev-parse", "HEAD"], racine) or _lecture_directe(racine)
     if not complet:
-        return {"disponible": False, "court": "", "complet": "", "date": "",
+        return {'disponible':False, 'court': '', 'complet': '', 'date': '',
                 "branche": "", "sujet": "", "modifie": False}
     court = _git(["rev-parse", "--short", "HEAD"], racine) or complet[:7]
-    branche = _git(["rev-parse", "--abbrev-ref", "HEAD"], racine) or ""
-    date = _git(["log", "-1", "--date=short", "--pretty=%cd"], racine) or ""
+    branche= _git(['rev-parse', '--abbrev-ref', 'HEAD'], racine) or ''
+    date =_git(["log", "-1", "--date=short", "--pretty=%cd"], racine) or ""
     sujet = _git(["log", "-1", "--pretty=%s"], racine) or ""
     return {
-        "disponible": True,
+        "disponible":True,
         "court": court,
-        "complet": complet,
+        'complet':complet,
         "date": date,
         "branche": branche,
-        "sujet": sujet,
-        # Renseigné seulement si git a réellement vu des fichiers modifiés.
-        "modifie": bool(_git(["status", "--porcelain"], racine)),
+        'sujet':sujet,
+        "modifie":bool(_git(["status", "--porcelain"], racine)),
     }
 
 
 def ligne_commit(info=None):
     """Ligne courte affichable dans un menu ou un en-tête."""
-    info = info or info_commit()
-    if not info.get("disponible"):
+    info=info or info_commit()
+    if not info.get('disponible'):
         return INCONNU
     morceaux = [f"commit {info['court']}"]
-    if info.get("date"):
+    if info.get('date'):
         morceaux.append(info["date"])
     if info.get("branche") and info["branche"] != "HEAD":
-        morceaux.append(info["branche"])
+        morceaux.append(info['branche'])
     if info.get("modifie"):
         morceaux.append("modifs locales")
-    return " · ".join(morceaux)
+    return ' · '.join(morceaux)

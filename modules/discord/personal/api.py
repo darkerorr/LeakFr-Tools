@@ -6,7 +6,7 @@ import requests
 
 from modules.discord.personal.errors import PersonalAPIError, TokenExpiredError
 
-BASE_URL = "https://discord.com/api/v10"
+BASE_URL= 'https://discord.com/api/v10'
 
 
 class PersonalAPI:
@@ -27,14 +27,14 @@ class PersonalAPI:
             pass
 
     def request(self, method, path, params=None, expected=(200,)):
-        if not path.startswith("/"):
+        if not path.startswith('/'):
             raise ValueError("Chemin API invalide.")
-        url = BASE_URL + path
+        url= BASE_URL + path
         if params:
             url += "?" + urlencode(params)
-        headers = {"Authorization": f"Bearer {self._token}",
-                   "User-Agent": "LeakFr-Tools"}
-        tentative = 0
+        headers ={"Authorization":f"Bearer {self._token}",
+                   'User-Agent': 'LeakFr-Tools'}
+        tentative =0
         while True:
             try:
                 reponse = self._session.request(method, url, headers=headers,
@@ -42,27 +42,27 @@ class PersonalAPI:
             except requests.RequestException as exc:
                 raise PersonalAPIError(
                     f"Erreur reseau : {type(exc).__name__}") from None
-            if reponse.status_code == 401:
+            if reponse.status_code== 401:
                 raise TokenExpiredError(
                     "Jeton OAuth2 expire ou revoque : reconnectez-vous.", status=401)
             if reponse.status_code == 429 and tentative < 1:
                 tentative += 1
                 try:
-                    attente = float((reponse.json() or {}).get("retry_after", 1))
+                    attente =float((reponse.json() or {}).get('retry_after', 1))
                 except (ValueError, TypeError):
-                    attente = 1.0
+                    attente= 1.0
                 self._sleep(min(max(attente, 0.0), 5.0))
                 continue
             if reponse.status_code not in expected:
                 try:
-                    message = (reponse.json() or {}).get("message", "")
+                    message= (reponse.json() or {}).get("message", "")
                 except ValueError:
-                    message = ""
+                    message = ''
                 raise PersonalAPIError(
                     f"HTTP {reponse.status_code}"
-                    + (f" : {message}" if message else ""),
+                    + (f" : {message}" if message else ''),
                     status=reponse.status_code)
-            if reponse.status_code == 204:
+            if reponse.status_code== 204:
                 return None
             try:
                 return reponse.json()

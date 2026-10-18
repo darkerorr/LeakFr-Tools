@@ -120,7 +120,7 @@ Un outil dont le binaire manque n’est jamais simulé : il affiche la commande 
 
 ## Sélection d’un outil
 
-Le **menu principal se pilote aux flèches** (haut/bas) dès qu’un vrai terminal est disponible : l’outil sélectionné est marqué par `❯`, les catégories se déploient avec `▾`/`▸`, et chaque ligne est tronquée pour ne jamais passer à la ligne. Le menu affiche aussi le **commit Git réel** du dépôt (`commit 2d9f6e4 · 2026-10-18 · main`), lu par `core/vcs.py`.
+Le **menu principal se pilote aux flèches** (haut/bas) dès qu’un vrai terminal est disponible : l’outil sélectionné est marqué par `❯` dans une ligne surlignée discrète, les catégories se déploient avec `▾`/`▸` et des connecteurs `├`/`└`, et chaque ligne est tronquée pour ne jamais passer à la ligne. L’interface est un **dashboard sobre** dessiné par `core/ui.py` : en-tête sur deux lignes (marque, contexte, **commit Git réel** lu par `core/vcs.py`), panneau `CATALOGUE` à gauche, panneau `DETAILS` à droite (outil, catégorie, rôle, système, session) et barre de raccourcis en pied. Aucun dégradé, aucune animation : filets fins, colonnes alignées et compteurs réels. Sur un terminal bas, la liste se fenêtre autour de la sélection au lieu de déborder, les catégories restant toujours visibles.
 
 | Entrée | Effet |
 |---|---|
@@ -268,7 +268,8 @@ En cas d'échec, le diagnostic distingue token refusé (401), permissions insuff
 ## Architecture
 
 - `main.py` : navigation aux flèches (repli numérique), menus Rich et point d’entrée CLI.
-- `core/branding.py` : logo ASCII unique, dégradés, en-tête complet/compact et bandeau de menu.
+- `core/branding.py` : logo ASCII unique, en-tête complet/compact et bandeau de menu.
+- `core/ui.py` : design system sobre (en-tête, filets, panneaux, colonnes, barre d’état) partagé par tous les écrans.
 - `core/vcs.py` : commit Git réel (hash, date, branche, modifications locales) affiché dans les menus.
 - `core/startup.py` : séquence animée de démarrage (activation, révélation du logo, initialisation, bilan) rendue avec `rich.live`.
 - `core/startup_checks.py` : contrôles réels du démarrage, sondes de version bornées et orchestrateur en arrière-plan.
@@ -343,3 +344,7 @@ Pour signaler un bug : joignez les étapes de reproduction, Python/OS, le résul
 ## Licence
 
 Aucun fichier `LICENSE` n’est présent dans le dépôt. Ne présumez pas qu’une licence libre autorise la redistribution ou la réutilisation.
+
+## Auteurs
+
+Projet développé par **Voice**, **KlYA**, **LikYti** et **€€$$$££**.

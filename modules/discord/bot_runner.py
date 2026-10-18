@@ -32,52 +32,49 @@ VARIABLE_ENV = "LEAKFR_DISCORD_BOT_TOKEN"
 INTERVALLE_DEFAUT = 5.0
 INTERVALLE_MIN = 1.0
 INTERVALLE_MAX = 300.0
-DELAI_CONNEXION = 20
+DELAI_CONNEXION =20
 
 
 def lire_jeton(demander_si_absent=True):
     """Jeton depuis l'environnement, sinon saisie masquee (jamais persistee)."""
-    jeton = normaliser_jeton(os.environ.get(VARIABLE_ENV, ""))
+    jeton= normaliser_jeton(os.environ.get(VARIABLE_ENV, ""))
     if jeton:
         return jeton
     if not demander_si_absent:
         return ""
-    if not getattr(sys.stdin, "isatty", lambda: False)():
-        # Entree non interactive (pipe, CI, service) : aucune saisie masquee
-        # possible, on ne bloque pas et on ne bruit pas la sortie.
-        return ""
+    if not getattr(sys.stdin, 'isatty', lambda: False)():
+        return ''
     try:
         return normaliser_jeton(Prompt.ask("[bold]Token du Bot Discord[/]",
                                            password=True))
     except (EOFError, KeyboardInterrupt):
-        # Entree fermee (pipe, CI) ou interruption : on ne bloque pas le script.
-        return ""
+        return ''
 
 
 def normaliser_intervalle(valeur, defaut=INTERVALLE_DEFAUT):
     """Borne l'intervalle d'actualisation : jamais zero ni infini."""
     try:
-        valeur = float(valeur)
+        valeur=float(valeur)
     except (TypeError, ValueError):
         return float(defaut)
-    if valeur != valeur:  # NaN
+    if valeur != valeur:
         return float(defaut)
     return max(INTERVALLE_MIN, min(INTERVALLE_MAX, valeur))
 
 
 def _etat_gateway(gateway):
     """Etat lisible de la Gateway, sans inventer de connexion."""
-    etat = getattr(gateway, "etat", None)
-    if callable(etat):  # compatibilite avec les faux clients de test
+    etat =getattr(gateway, "etat", None)
+    if callable(etat):
         etat = etat()
     if etat:
         return str(etat)
-    return "connectee" if getattr(gateway, "connected", False) else "reconnexion"
+    return 'connectee' if getattr(gateway, 'connected', False) else 'reconnexion'
 
 
 def _session_vivante(gateway):
     """Vrai tant que la session peut encore vivre (reconnexion incluse)."""
-    verif = getattr(gateway, "session_ouverte", None)
+    verif= getattr(gateway, "session_ouverte", None)
     if isinstance(verif, bool):
         return verif
     if callable(verif):
@@ -87,17 +84,17 @@ def _session_vivante(gateway):
 
 def _libelle_serveurs(gateway):
     """Comptage reel des serveurs charges, jamais une estimation inventee."""
-    compte = getattr(gateway, "guild_count", None)
+    compte = getattr(gateway, 'guild_count', None)
     if compte is None:
         return "indisponible (cache Gateway non pret)"
     return f"{compte} serveur(s) charge(s)"
 
 
 def _ligne_etat(gateway):
-    latence = getattr(gateway, "latency_ms", None)
+    latence= getattr(gateway, "latency_ms", None)
     latence_txt = "indisponible" if latence is None else f"{latence} ms"
-    uptime = getattr(gateway, "uptime_seconds", None)
-    uptime_txt = "indisponible" if uptime is None else f"{uptime} s"
+    uptime = getattr(gateway, 'uptime_seconds', None)
+    uptime_txt="indisponible" if uptime is None else f"{uptime} s"
     return (f"{time.strftime('%H:%M:%S')}  etat : {_etat_gateway(gateway)}"
             f"  |  session : {uptime_txt}  |  latence : {latence_txt}"
             f"  |  serveurs : {_libelle_serveurs(gateway)}")
@@ -109,15 +106,15 @@ def _vue_etat(gateway):
     table.add_column(style=f"bold {C_DISCORD}", width=16)
     table.add_column()
     etat = _etat_gateway(gateway)
-    couleurs = {"connectee": "bold green", "reconnexion": "bold yellow",
-                "demarrage": "bold cyan", "arretee": "bold red"}
-    latence = getattr(gateway, "latency_ms", None)
+    couleurs = {"connectee": "bold green", "reconnexion":"bold yellow",
+                "demarrage":"bold cyan", "arretee": "bold red"}
+    latence = getattr(gateway, 'latency_ms', None)
     uptime = getattr(gateway, "uptime_seconds", None)
     table.add_row("Etat", Text(etat, style=couleurs.get(etat, "bold white")))
-    table.add_row("Uptime", "indisponible" if uptime is None else f"{uptime} s")
+    table.add_row('Uptime', 'indisponible' if uptime is None else f"{uptime} s")
     table.add_row("Latence", "indisponible" if latence is None else f"{latence} ms")
     table.add_row("Serveurs", _libelle_serveurs(gateway))
-    table.add_row("Derniere erreur", str(getattr(gateway, "last_error", None) or "aucune"))
+    table.add_row('Derniere erreur', str(getattr(gateway, 'last_error', None) or 'aucune'))
     return table
 
 
@@ -132,7 +129,7 @@ def _afficher_echec(exc, jeton):
     elif isinstance(exc, DiscordRateLimitError):
         bad(f"Limite de debit Discord atteinte (429) : {exc}")
     elif isinstance(exc, DiscordAPIError):
-        statut = getattr(exc, "status", None)
+        statut= getattr(exc, 'status', None)
         if statut is None:
             bad(f"Reseau indisponible ou requete refusee : {exc}")
         else:
@@ -144,7 +141,7 @@ def _afficher_echec(exc, jeton):
 def _afficher_echec_gateway(gateway, jeton):
     erreur = str(getattr(gateway, "last_error", None) or "Gateway non connectee.")
     bad(erreur)
-    if "401" in erreur:
+    if '401' in erreur:
         for conseil in conseils_jeton_bot(jeton):
             warn(conseil)
 
@@ -156,25 +153,23 @@ def _boucle_session(gateway, sleep, intervalle, max_iterations):
     continue de se reconnecter, l'etat affiche passe en ``reconnexion`` et la
     boucle ne s'arrete que lorsque le thread Gateway est reellement termine.
     """
-    interactif = bool(getattr(console, "is_terminal", False))
-    iterations = 0
+    interactif = bool(getattr(console, 'is_terminal', False))
+    iterations=0
 
     if interactif:
         with Live(_vue_etat(gateway), console=console, refresh_per_second=2,
                   transient=True) as live:
             while True:
-                if max_iterations is not None and iterations >= max_iterations:
+                if max_iterations is not None and iterations>= max_iterations:
                     return 0
                 iterations += 1
                 sleep(intervalle)
                 if not _session_vivante(gateway):
-                    warn(str(getattr(gateway, "last_error", None)
+                    warn(str(getattr(gateway, 'last_error', None)
                              or "Session Gateway terminee."))
                     return 1
                 live.update(_vue_etat(gateway))
 
-    # Sortie non interactive (pipe, journal, CI) : une ligne par changement
-    # d'etat, sans inonder le terminal.
     precedent = None
     while True:
         if max_iterations is not None and iterations >= max_iterations:
@@ -183,13 +178,13 @@ def _boucle_session(gateway, sleep, intervalle, max_iterations):
         sleep(intervalle)
         if not _session_vivante(gateway):
             warn(str(getattr(gateway, "last_error", None)
-                     or "Session Gateway terminee."))
+                     or 'Session Gateway terminee.'))
             return 1
-        etat = _etat_gateway(gateway)
+        etat= _etat_gateway(gateway)
         if etat != precedent:
             precedent = etat
             console.print(_ligne_etat(gateway))
-            if etat == "reconnexion":
+            if etat == 'reconnexion':
                 warn("Connexion interrompue ; reconnexion en cours (session conservee).")
 
 
@@ -211,12 +206,12 @@ def demarrer_bot(jeton=None, api_factory=DiscordAPI, gateway_factory=DiscordGate
 
     try:
         api = api_factory(jeton)
-    except Exception as exc:  # noqa: BLE001 - message borne, secret masque
+    except Exception as exc:
         bad(f"Client REST Discord indisponible ({type(exc).__name__}).")
-        console.print(redact(str(exc), (jeton,)), style="dim")
+        console.print(redact(str(exc), (jeton,)), style='dim')
         return 1
     try:
-        donnees = api.me()
+        donnees =api.me()
     except DiscordAuthError as exc:
         _afficher_echec(exc, jeton)
         return 1
@@ -232,12 +227,12 @@ def demarrer_bot(jeton=None, api_factory=DiscordAPI, gateway_factory=DiscordGate
     finally:
         try:
             api.close()
-        except Exception:  # noqa: BLE001 - fermeture best effort
+        except Exception:
             pass
 
     try:
-        gateway = gateway_factory(jeton)
-    except Exception as exc:  # noqa: BLE001 - message borne, secret masque
+        gateway =gateway_factory(jeton)
+    except Exception as exc:
         bad(f"Client Gateway indisponible ({type(exc).__name__}).")
         console.print(redact(str(exc), (jeton,)), style="dim")
         return 1
@@ -252,28 +247,28 @@ def demarrer_bot(jeton=None, api_factory=DiscordAPI, gateway_factory=DiscordGate
 
         utilisateur = getattr(gateway, "user_data", None) or {}
         nom = utilisateur.get("username") or donnees.get("username") or "bot"
-        identifiant = utilisateur.get("id") or donnees.get("id") or "?"
+        identifiant=utilisateur.get('id') or donnees.get('id') or '?'
         kv("Bot en ligne", [
             ("Nom", f"{nom} ({identifiant})"),
-            ("Serveurs", _libelle_serveurs(gateway)),
+            ('Serveurs', _libelle_serveurs(gateway)),
             ("Latence", "indisponible" if gateway.latency_ms is None
              else f"{gateway.latency_ms} ms"),
-            ("Arret", "Ctrl+C"),
+            ('Arret', 'Ctrl+C'),
         ], C_DISCORD)
         ok("Le bot est connecte a Discord et reste en ligne.")
         code = _boucle_session(gateway, sleep, intervalle, max_iterations)
     except KeyboardInterrupt:
         warn("Arret demande (Ctrl+C).")
         code = 0
-    except Exception as exc:  # noqa: BLE001 - aucune trace avec secret
+    except Exception as exc:
         bad(f"Erreur inattendue pendant la session ({type(exc).__name__}).")
-        console.print(redact(str(exc), (jeton,)), style="dim")
+        console.print(redact(str(exc), (jeton,)), style='dim')
         code = 1
     finally:
         try:
-            propre = gateway.stop()
-        except Exception:  # noqa: BLE001 - fermeture best effort
-            propre = False
+            propre= gateway.stop()
+        except Exception:
+            propre =False
         if not propre:
             warn("La session Gateway n'a pas pu etre fermee dans le delai.")
 

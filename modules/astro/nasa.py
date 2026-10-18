@@ -7,8 +7,8 @@ pour être affichée : aucune clé n'est inventée ni mise en cache.
 """
 import os
 
-CLE_PUBLIQUE = "DEMO_KEY"
-CLE_REGLAGE = "nasa_api_key"
+CLE_PUBLIQUE ="DEMO_KEY"
+CLE_REGLAGE ="nasa_api_key"
 
 
 def cle_api():
@@ -19,18 +19,18 @@ def cle_api():
     try:
         from core.config import charger
         config = charger()
-        cle = str((config.get("api_keys") or {}).get(CLE_REGLAGE) or "").strip()
+        cle= str((config.get("api_keys") or {}).get(CLE_REGLAGE) or "").strip()
     except Exception:
-        cle = ""
+        cle = ''
     if cle:
         return cle, "réglage local api_keys.nasa_api_key"
-    return CLE_PUBLIQUE, "clé publique DEMO_KEY (limitée à quelques requêtes)"
+    return CLE_PUBLIQUE, 'clé publique DEMO_KEY (limitée à quelques requêtes)'
 
 
 def params_nasa(supplement=None):
     """Paramètres de requête avec la clé réellement disponible."""
     cle, source = cle_api()
-    params = {"api_key": cle}
+    params = {'api_key': cle}
     if supplement:
         params.update(supplement)
     return params, source

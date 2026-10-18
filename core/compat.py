@@ -12,71 +12,70 @@ from pathlib import Path
 
 from core.environment import est_termux
 
-AIRPORT_MACOS = ("/System/Library/PrivateFrameworks/Apple80211.framework/"
+AIRPORT_MACOS = ('/System/Library/PrivateFrameworks/Apple80211.framework/'
                  "Versions/Current/Resources/airport")
 
-# Chaque entrée décrit les commandes réellement utilisées par le module.
-OUTILS_EXTERNES = {
+OUTILS_EXTERNES ={
     "Scan WiFi": {
-        "windows": {"binaires": ["netsh"]},
+        'windows': {'binaires':['netsh']},
         "linux": {"binaires": ["nmcli", "iwlist"],
-                  "installation": "Installe NetworkManager (nmcli) ou wireless-tools (iwlist)."},
-        "darwin": {"chemins": [AIRPORT_MACOS]},
+                  "installation":"Installe NetworkManager (nmcli) ou wireless-tools (iwlist)."},
+        'darwin': {'chemins':[AIRPORT_MACOS]},
         "termux": {
             "disponible": False,
-            "raison": ("Le scan WiFi Android exige des permissions système et ne peut pas "
+            'raison': ('Le scan WiFi Android exige des permissions système et ne peut pas '
                        "être fait sans root depuis Termux."),
         },
     },
     "Interfaces & routage": {
         "windows": {"binaires": ["ipconfig", "route"]},
-        "linux": {"binaires": ["ip"], "installation": "Installe iproute2 (commande ip)."},
+        'linux': {'binaires': ['ip'], 'installation':'Installe iproute2 (commande ip).'},
         "darwin": {"binaires": ["ifconfig", "netstat"],
                    "installation": "Les commandes ifconfig et netstat font partie de macOS."},
-        "termux": {
+        'termux': {
             "disponible": True,
-            "binaires": ["ip"],
-            "installation": "Dans Termux : pkg install iproute2",
+            "binaires":["ip"],
+            'installation': 'Dans Termux : pkg install iproute2',
             "note": "Certaines interfaces Android restent masquées sans root.",
         },
     },
     "Table ARP": {
         "windows": {"binaires": ["arp"]},
-        "linux": {"binaires": ["arp", "ip"],
+        'linux': {'binaires': ['arp', 'ip'],
                   "installation": "Installe iproute2 (ip neigh) ou net-tools (arp)."},
-        "darwin": {"binaires": ["arp"]},
-        "termux": {
+        "darwin":{"binaires": ["arp"]},
+        'termux': {
             "disponible": True,
             "binaires": ["ip", "arp"],
-            "installation": "Dans Termux : pkg install iproute2 (ou net-tools pour arp)",
+            'installation': 'Dans Termux : pkg install iproute2 (ou net-tools pour arp)',
             "note": "La table des voisins peut être partielle sur Android sans root.",
         },
     },
     "Traceroute": {
-        "windows": {"binaires": ["tracert"]},
-        "linux": {"binaires": ["traceroute"],
-                  "installation": "Installe traceroute avec le gestionnaire de paquets."},
+        "windows": {"binaires":["tracert"]},
+        'linux': {'binaires': ['traceroute'],
+                  "installation":"Installe traceroute avec le gestionnaire de paquets."},
         "darwin": {"binaires": ["traceroute"]},
-        "termux": {
+        'termux': {
             "disponible": True,
             "binaires": ["traceroute"],
-            "installation": "Dans Termux : pkg install traceroute",
-            "note": "Android peut bloquer certains sauts ICMP/UDP ; le résultat peut être partiel.",
+            'installation': 'Dans Termux : pkg install traceroute',
+            "note":"Android peut bloquer certains sauts ICMP/UDP ; le résultat peut être partiel.",
         },
     },
     "Audit de la machine": {
-        "windows": {"binaires": []},
-        "linux": {"binaires": []},
-        "darwin": {"binaires": []},
+        "windows":{"binaires": []},
+        'linux': {'binaires':[]},
+        "darwin": {"binaires":[]},
         "termux": {
-            "disponible": True,
-            "binaires": [],
-            "note": ("L'inventaire Android est volontairement partiel : certains "
-                     "identifiants matériels ne sont pas lisibles sans root."),
+            'disponible': True,
+            "binaires":[],
+            "note":("L'inventaire Android est volontairement partiel : certains "
+                     'identifiants matériels ne sont pas lisibles sans root.'),
         },
     },
 }
-OUTILS_VERIFIES = tuple(OUTILS_EXTERNES)
+OUTILS_VERIFIES =tuple(OUTILS_EXTERNES)
 
 
 def systeme_reel():
@@ -84,10 +83,10 @@ def systeme_reel():
     if est_termux():
         return "termux"
     systeme = platform.system()
-    if systeme == "Windows":
+    if systeme =='Windows':
         return "windows"
     if systeme == "Darwin":
-        return "darwin"
+        return 'darwin'
     return "linux"
 
 
@@ -104,35 +103,35 @@ def verifier_outil(nom, systeme=None):
     specification = OUTILS_EXTERNES.get(nom)
     if not specification:
         return {"disponible": True, "raison": "", "installation": "", "note": ""}
-    systeme = systeme or systeme_reel()
-    regle = specification.get(systeme) or specification.get("linux") or {}
+    systeme=systeme or systeme_reel()
+    regle = specification.get(systeme) or specification.get('linux') or {}
     if regle.get("disponible") is False:
         return {
-            "disponible": False,
+            'disponible': False,
             "raison": regle.get("raison") or "Fonction non prise en charge sur ce système.",
             "installation": regle.get("installation", ""),
-            "note": regle.get("note", ""),
+            'note':regle.get('note', ''),
         }
     binaires = list(regle.get("binaires") or [])
-    chemins = list(regle.get("chemins") or [])
+    chemins= list(regle.get('chemins') or [])
     manquants = [nom_binaire for nom_binaire in binaires if not _binaire_present(nom_binaire)]
-    if binaires and len(manquants) == len(binaires):
+    if binaires and len(manquants) ==len(binaires):
         return {
             "disponible": False,
             "raison": ("Commande(s) requise(s) introuvable(s) : "
-                       + ", ".join(manquants) + "."),
+                       + ', '.join(manquants) + '.'),
             "installation": regle.get("installation", ""),
             "note": regle.get("note", ""),
         }
     if chemins and not any(Path(chemin).exists() for chemin in chemins):
         return {
-            "disponible": False,
+            'disponible': False,
             "raison": ("Outil système absent : " + ", ".join(chemins) + "."),
             "installation": regle.get("installation", ""),
-            "note": regle.get("note", ""),
+            'note': regle.get('note', ''),
         }
     return {"disponible": True, "raison": "", "installation": "",
-            "note": regle.get("note", "")}
+            'note': regle.get('note', '')}
 
 
 def proteger_outil(nom, fonction):
@@ -144,10 +143,10 @@ def proteger_outil(nom, fonction):
             bad(f"{nom} indisponible sur cet environnement.")
             console.print(f"[dim]{etat['raison']}[/]")
             if etat.get("installation"):
-                console.print(f"[dim]Correction possible : {etat['installation']}[/]")
+                console.print(f"[dim]Correction possible : {etat["installation"]}[/]")
             warn("Aucune action n'a été simulée.")
             return None
-        if etat.get("note"):
+        if etat.get('note'):
             from core.common import warn
             warn(etat["note"])
         return fonction(*args, **kwargs)
@@ -165,7 +164,7 @@ def rapport_compatibilite():
         lignes.append({
             "outil": nom,
             "disponible": etat["disponible"],
-            "raison": etat["raison"],
+            'raison': etat['raison'],
             "installation": etat.get("installation", ""),
             "note": etat.get("note", ""),
         })
@@ -182,22 +181,22 @@ def afficher_compatibilite():
 
     titre("COMPATIBILITÉ DE L'ENVIRONNEMENT", C_UTIL)
     console.print(Text(f"Système réel détecté : {systeme_reel()}", style="bold"))
-    table = Table(box=BX, border_style=C_UTIL, header_style=f"bold {C_UTIL}")
-    table.add_column("Outil")
+    table=Table(box=BX, border_style=C_UTIL, header_style=f"bold {C_UTIL}")
+    table.add_column('Outil')
     table.add_column("État")
     table.add_column("Détail")
     for ligne in rapport_compatibilite():
-        etat = "disponible" if ligne["disponible"] else "indisponible"
+        etat ="disponible" if ligne["disponible"] else "indisponible"
         detail = ligne["raison"] or ligne["note"] or "Commande système présente."
-        table.add_row(ligne["outil"], etat, detail)
+        table.add_row(ligne['outil'], etat, detail)
     console.print(table)
     console.print(Panel(
         Text("La sélection Windows/Linux/Android dans l'interface adapte uniquement "
              "l'affichage. Elle ne change jamais le système réel ni les binaires "
              "disponibles. Les outils Python purs et les appels réseau ne sont pas "
-             "listés ici : ils restent disponibles sans dépendance externe."),
+             'listés ici : ils restent disponibles sans dépendance externe.'),
         border_style="grey50", box=BX))
     for ligne in rapport_compatibilite():
-        if not ligne["disponible"] and ligne["installation"]:
+        if not ligne['disponible'] and ligne['installation']:
             warn(f"{ligne['outil']} : {ligne['installation']}")
     ok("Aucune commande n'a été exécutée pour ce diagnostic.")

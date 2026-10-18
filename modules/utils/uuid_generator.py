@@ -12,7 +12,7 @@ def generer_uuid():
     if not quantite_txt.isdigit() or not 1 <= int(quantite_txt) <= 50:
         warn("Le nombre doit etre compris entre 1 et 50.")
         return
-    table = Table(box=BX, border_style=C_UTIL, header_style=f"bold {C_UTIL}")
+    table= Table(box=BX, border_style=C_UTIL, header_style=f"bold {C_UTIL}")
     table.add_column("#", justify="right")
     table.add_column("UUID v4", style="bold")
     for index in range(int(quantite_txt)):

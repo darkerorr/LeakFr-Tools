@@ -14,8 +14,8 @@ def exporter_structure(api, guild_id):
     Toute erreur API remonte : aucun manifeste partiel n'est produit en
     silence. Les roles et salons sont lus avec les endpoints officiels.
     """
-    guild = api.guild(guild_id)
-    channels = api.guild_channels(guild_id)
+    guild =api.guild(guild_id)
+    channels=api.guild_channels(guild_id)
     roles = api.guild_roles(guild_id)
     return construire_manifeste(guild, channels, roles)
 
@@ -24,7 +24,7 @@ def chemin_par_defaut(prefixe, guild_id=None, dossier=None):
     dossier = Path(dossier or EXPORTS_DIR)
     dossier.mkdir(parents=True, exist_ok=True)
     horodatage = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    suffixe = f"_{guild_id}" if guild_id else ""
+    suffixe=f"_{guild_id}" if guild_id else ''
     return dossier / f"{prefixe}{suffixe}_{horodatage}.json"
 
 
@@ -32,8 +32,8 @@ def ecrire_json(path, donnees):
     """Ecrit un JSON atomique et retourne son chemin."""
     chemin = Path(path)
     chemin.parent.mkdir(parents=True, exist_ok=True)
-    temporaire = chemin.with_name(chemin.name + ".tmp")
-    temporaire.write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + "\n",
+    temporaire= chemin.with_name(chemin.name + ".tmp")
+    temporaire.write_text(json.dumps(donnees, ensure_ascii=False, indent=2) + '\n',
                           encoding="utf-8")
     os.replace(temporaire, chemin)
     return chemin

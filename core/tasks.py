@@ -15,10 +15,10 @@ from pathlib import Path
 
 STATUT_EN_ATTENTE = "en_attente"
 STATUT_EN_COURS = "en_cours"
-STATUT_REUSSI = "reussi"
+STATUT_REUSSI = 'reussi'
 STATUT_PARTIEL = "partiel"
 STATUT_ANNULE = "annule"
-STATUT_ECHEC = "echec"
+STATUT_ECHEC = 'echec'
 
 
 def _maintenant():
@@ -34,7 +34,7 @@ class Etape:
     alors ``partiel``.
     """
 
-    libelle: str
+    libelle:str
     action: object
     obligatoire: bool = False
 
@@ -42,7 +42,7 @@ class Etape:
         if not callable(self.action):
             raise TypeError("L'action d'une etape doit etre appelable.")
         if not str(self.libelle or "").strip():
-            raise ValueError("Une etape doit avoir un libelle.")
+            raise ValueError('Une etape doit avoir un libelle.')
 
 
 @dataclass
@@ -53,14 +53,14 @@ class Tache:
     type: str
     description: str
     etapes: list
-    signature: str = ""
-    destructive: bool = False
+    signature: str =""
+    destructive: bool=False
     metadonnees: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if not str(self.identifiant or "").strip():
             raise ValueError("Identifiant de tache obligatoire.")
-        self.etapes = list(self.etapes or [])
+        self.etapes =list(self.etapes or [])
         if not self.etapes:
             raise ValueError("Une tache doit contenir au moins une etape.")
         if not all(isinstance(etape, Etape) for etape in self.etapes):
@@ -72,13 +72,13 @@ class Tache:
 @dataclass
 class ResultatTache:
     tache: Tache
-    statut: str = STATUT_EN_ATTENTE
-    etapes_reussies: list = field(default_factory=list)
-    erreurs: list = field(default_factory=list)
+    statut: str =STATUT_EN_ATTENTE
+    etapes_reussies: list= field(default_factory=list)
+    erreurs:list =field(default_factory=list)
     etapes_ignorees: list = field(default_factory=list)
     debut: str = ""
     fin: str = ""
-    annulee: bool = False
+    annulee: bool =False
 
     def duree_secondes(self):
         if not self.debut or not self.fin:
@@ -93,19 +93,19 @@ class ResultatTache:
     def to_dict(self):
         return {
             "identifiant": self.tache.identifiant,
-            "type": self.tache.type,
+            'type': self.tache.type,
             "description": self.tache.description,
             "signature": self.tache.signature,
-            "destructive": self.tache.destructive,
+            'destructive': self.tache.destructive,
             "statut": self.statut,
             "debut": self.debut,
-            "fin": self.fin,
+            'fin': self.fin,
             "duree_secondes": round(self.duree_secondes(), 3),
             "etapes_reussies": list(self.etapes_reussies),
-            "etapes_ignorees": list(self.etapes_ignorees),
+            'etapes_ignorees':list(self.etapes_ignorees),
             "erreurs": list(self.erreurs),
-            "annulee": self.annulee,
-            "metadonnees": dict(self.tache.metadonnees),
+            "annulee":self.annulee,
+            'metadonnees': dict(self.tache.metadonnees),
         }
 
     def resume(self):
@@ -126,22 +126,19 @@ class MoteurTaches:
     def __init__(self, journal_path=None, max_erreurs_consecutives=3,
                  redact=None, horloge=_maintenant, sleep=time.sleep,
                  exceptions_arret=(), annulation_externe=None):
-        self._file = deque()
-        self._signatures = set()
+        self._file= deque()
+        self._signatures=set()
         self._en_cours = None
         self._annulation = threading.Event()
-        self.exceptions_arret = tuple(exceptions_arret or ())
-        self._annulation_externe = annulation_externe
+        self.exceptions_arret =tuple(exceptions_arret or ())
+        self._annulation_externe =annulation_externe
         self.journal_path = Path(journal_path) if journal_path else None
         self.max_erreurs_consecutives = max(1, int(max_erreurs_consecutives))
-        self._redact = redact or (lambda texte: str(texte))
+        self._redact = redact or (lambda texte:str(texte))
         self._horloge = horloge
-        self._sleep = sleep
-        self.resultats = []
+        self._sleep =sleep
+        self.resultats =[]
 
-    # ------------------------------------------------------------------
-    # File et annulation
-    # ------------------------------------------------------------------
     @property
     def taille_file(self):
         return len(self._file)
@@ -153,7 +150,7 @@ class MoteurTaches:
     def ajouter(self, tache):
         """Ajoute une tache ; refuse un doublon deja en file ou en cours."""
         if not isinstance(tache, Tache):
-            raise TypeError("Une tache doit etre une instance de Tache.")
+            raise TypeError('Une tache doit etre une instance de Tache.')
         if tache.signature in self._signatures:
             return False
         self._signatures.add(tache.signature)
@@ -170,19 +167,19 @@ class MoteurTaches:
             raise RuntimeError("Une tache est deja en cours d'execution.")
         if not self._file:
             return None
-        tache = self._file.popleft()
+        tache =self._file.popleft()
         self._en_cours = tache
         self._annulation.clear()
         resultat = self._executer(tache, progression, journal)
         self._signatures.discard(tache.signature)
-        self._en_cours = None
+        self._en_cours= None
         self.resultats.append(resultat)
         self._journaliser_resultat(resultat)
         return resultat
 
     def executer_file(self, progression=None, journal=None):
         """Execute toute la file dans l'ordre et retourne les resultats."""
-        resultats = []
+        resultats =[]
         while self._file:
             resultat = self.executer_suivante(progression, journal)
             if resultat is not None:
@@ -191,21 +188,18 @@ class MoteurTaches:
                 break
         return resultats
 
-    # ------------------------------------------------------------------
-    # Execution
-    # ------------------------------------------------------------------
     def _executer(self, tache, progression, journal):
-        resultat = ResultatTache(tache=tache, statut=STATUT_EN_COURS,
+        resultat =ResultatTache(tache=tache, statut=STATUT_EN_COURS,
                                  debut=self._horloge())
         total = len(tache.etapes)
         echecs_consecutifs = 0
         arret_force = False
 
         for index, etape in enumerate(tache.etapes, start=1):
-            externe = (self._annulation_externe is not None
+            externe= (self._annulation_externe is not None
                        and self._annulation_externe())
             if self._annulation.is_set() or externe:
-                resultat.annulee = True
+                resultat.annulee= True
                 resultat.etapes_ignorees.extend(
                     fin.libelle for fin in tache.etapes[index - 1:])
                 break
@@ -215,8 +209,8 @@ class MoteurTaches:
                 journal("info", f"Etape {index}/{total} : {etape.libelle}")
             try:
                 etape.action()
-            except Exception as exc:  # noqa: BLE001 - le moteur doit tout rapporter
-                message = self._redact(f"{etape.libelle} : {type(exc).__name__} - {exc}")
+            except Exception as exc:
+                message=self._redact(f"{etape.libelle} : {type(exc).__name__} - {exc}")
                 resultat.erreurs.append(message)
                 echecs_consecutifs += 1
                 if journal:
@@ -232,7 +226,7 @@ class MoteurTaches:
                         fin.libelle for fin in tache.etapes[index:])
                     break
                 if echecs_consecutifs >= self.max_erreurs_consecutives:
-                    resultat.statut = STATUT_ECHEC
+                    resultat.statut =STATUT_ECHEC
                     resultat.erreurs.append(
                         f"Arret apres {echecs_consecutifs} erreurs consecutives.")
                     resultat.etapes_ignorees.extend(
@@ -241,14 +235,14 @@ class MoteurTaches:
                         journal("erreur", "Arret de securite apres erreurs repetees.")
                     break
             else:
-                echecs_consecutifs = 0
+                echecs_consecutifs =0
                 resultat.etapes_reussies.append(etape.libelle)
                 if journal:
                     journal("ok", f"Termine : {etape.libelle}")
 
         resultat.fin = self._horloge()
         if resultat.annulee:
-            resultat.statut = STATUT_ANNULE
+            resultat.statut =STATUT_ANNULE
         elif resultat.statut == STATUT_ECHEC:
             if arret_force and resultat.etapes_reussies:
                 resultat.statut = STATUT_PARTIEL
@@ -256,9 +250,6 @@ class MoteurTaches:
             resultat.statut = STATUT_PARTIEL if resultat.erreurs else STATUT_REUSSI
         return resultat
 
-    # ------------------------------------------------------------------
-    # Journal
-    # ------------------------------------------------------------------
     def _journaliser_resultat(self, resultat):
         if not self.journal_path:
             return
@@ -276,7 +267,7 @@ class MoteurTaches:
             return []
         entrees = []
         try:
-            for ligne in self.journal_path.read_text(encoding="utf-8").splitlines():
+            for ligne in self.journal_path.read_text(encoding='utf-8').splitlines():
                 try:
                     entrees.append(json.loads(ligne))
                 except ValueError:

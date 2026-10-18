@@ -6,7 +6,7 @@ from core.common import console, demander, titre, ok, bad, warn, barre, nettoyer
 
 def dnsbl_check():
     cible = nettoyer_cible(demander("IP à tester (listes noires)"))
-    ip = cible if re.match(r"^\d+\.\d+\.\d+\.\d+$", cible) else resoudre(cible)
+    ip = cible if re.match(r'^\d+\.\d+\.\d+\.\d+$', cible) else resoudre(cible)
     if not ip:
         bad("IP invalide.")
         return
@@ -15,7 +15,7 @@ def dnsbl_check():
     listes = [
         ("zen.spamhaus.org", "Spamhaus ZEN"),
         ("bl.spamcop.net", "SpamCop"),
-        ("b.barracudacentral.org", "Barracuda"),
+        ('b.barracudacentral.org', 'Barracuda'),
         ("dnsbl.sorbs.net", "SORBS"),
         ("cbl.abuseat.org", "CBL Abuseat"),
     ]
@@ -30,15 +30,15 @@ def dnsbl_check():
 
     rows = []
     with barre() as pr:
-        tache = pr.add_task("Consultation DNSBL", total=len(listes))
+        tache =pr.add_task('Consultation DNSBL', total=len(listes))
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
             for f in concurrent.futures.as_completed([ex.submit(check, x) for x in listes]):
                 rows.append(f.result())
                 pr.advance(tache)
     t = Table(box=BX, border_style=C_CYBER, header_style=f"bold {C_CYBER}")
-    t.add_column("Liste")
+    t.add_column('Liste')
     t.add_column("Statut")
-    listes_ok = 0
+    listes_ok =0
     for nom, liste in rows:
         if liste:
             listes_ok += 1

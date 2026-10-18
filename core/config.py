@@ -7,105 +7,87 @@ import json
 import os
 import sys
 
-# Répertoire de données local (dans le dépôt par défaut).
-# LEAKFR_DATA_DIR permet de choisir un dossier utilisateur accessible sur
-# Termux ou dans une installation en lecture seule, sans déplacer les données
-# existantes tant que la variable n'est pas définie.
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_DATA_SURCHARGE = os.environ.get("LEAKFR_DATA_DIR", "").strip()
+BASE_DIR=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DATA_SURCHARGE =os.environ.get('LEAKFR_DATA_DIR', '').strip()
 DATA_DIR = (os.path.abspath(os.path.expanduser(_DATA_SURCHARGE))
             if _DATA_SURCHARGE else os.path.join(BASE_DIR, "data"))
 
-# Chemins importants
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
-CASES_DB = os.path.join(DATA_DIR, "cases.db")
-HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
-EXPORTS_DIR = os.path.join(DATA_DIR, "exports")
-LOGS_DIR = os.path.join(DATA_DIR, "logs")
+CASES_DB = os.path.join(DATA_DIR, 'cases.db')
+HISTORY_FILE =os.path.join(DATA_DIR, "history.json")
+EXPORTS_DIR =os.path.join(DATA_DIR, "exports")
+LOGS_DIR= os.path.join(DATA_DIR, 'logs')
 
-# ---------------------------------------------------------------------------
-# Valeurs par défaut – chaque catégorie avec ses clés
-# ---------------------------------------------------------------------------
 DEFAUTS = {
-    # Apparence
-    "apparence": {
-        "theme_actif": "original",
-        "banniere_demarrage": True,
+    "apparence":{
+        "theme_actif":"original",
+        'banniere_demarrage': True,
         "animations": True,
-        "introduction_longue": True,
-        "style_interface": "dashboard",  # dashboard / classique / compact
+        "introduction_longue":True,
+        'style_interface':'dashboard',
         "afficher_aide_menu": True,
         "couleur_shell_texte": "#ffffff",
-        "couleur_shell_fond": "#10131c",
-        "couleur_accent": "",
+        'couleur_shell_fond':'#10131c',
+        "couleur_accent":"",
         "afficher_panneau_lateral": True,
-        "largeur_menu": "auto",  # auto / large / etroit
+        'largeur_menu': 'auto',
         "afficher_badges_categories": True,
     },
-    # Plateforme et interface adaptative (aucun secret ici)
     "plateforme": {
-        "environnement": "auto",       # windows / linux / termux / macos / autre
-        "mode_texte": False,
-        "largeur_sortie": "auto",      # auto / large / etroit
+        "environnement": "auto",
+        'mode_texte': False,
+        "largeur_sortie": "auto",
         "pagination": 15,
-        "dernier_menu": "",
+        'dernier_menu': '',
     },
-    # Démarrage
-    "demarrage": {
+    'demarrage': {
         "verifier_dependances": True,
         "afficher_version": True,
     },
-    # Fonctionnement
     "fonctionnement": {
-        "confirmation_sensible": True,
-        "niveau_details": "normal",         # minimal / normal / verbose
+        'confirmation_sensible': True,
+        "niveau_details": "normal",
         "effets_visuels": True,
     },
-    # Réseau
     "reseau": {
-        "timeout": 8,
+        'timeout': 8,
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "max_redirects": 5,
-        "dns_timeout": 3,
+        'dns_timeout': 3,
     },
-    # Stockage
-    "stockage": {
+    'stockage': {
         "data_dir": DATA_DIR,
         "max_historique": 500,
-        "sauvegarder_resultats": True,
+        'sauvegarder_resultats': True,
     },
-    # Journalisation
-    "journalisation": {
-        "niveau": "info",                  # debug / info / warning / error
+    'journalisation': {
+        "niveau": "info",
         "fichier_log": os.path.join(LOGS_DIR, "leakfr.log"),
-        "log_dans_terminal": True,
+        'log_dans_terminal': True,
     },
-    # Modules (paramètres spécifiques)
-    "modules": {
+    'modules':{
         "osint": {},
-        "recon": {},
-        "cyber": {},
-        "pentest": {},
+        "recon":{},
+        'cyber': {},
+        "pentest":{},
         "discord": {},
-        "utils": {},
-        "astro": {},
+        'utils': {},
+        "astro":{},
     },
-    # Clés API (jamais dans les logs)
     "api_keys": {},
-    # Thème personnalisé (écrase theme_actif si "personnalise")
-    "theme_personnalise": {
+    'theme_personnalise': {
         "principale": "#ff5fd2",
         "secondaire": "#36d1ff",
-        "titres": "#ffd166",
+        'titres': '#ffd166',
         "texte_principal": "#ffffff",
         "texte_secondaire": "#888888",
-        "selection": "#ffffff",
+        'selection': '#ffffff',
         "bordures": "#888888",
         "accents": "#ff5fd2",
-        "succes": "#4ade80",
+        'succes': '#4ade80',
         "avertissements": "#ffd166",
         "erreurs": "#ff5c7a",
-        "panneaux": "#1a1a2e",
+        'panneaux': '#1a1a2e',
     },
 }
 
@@ -135,7 +117,6 @@ def charger() -> dict:
     if not isinstance(data, dict):
         return _deep_copy(DEFAUTS)
 
-    # Fusion récursive avec les défauts
     fusion = _deep_copy(DEFAUTS)
     _fusionner(fusion, data)
     return fusion
@@ -171,7 +152,7 @@ def obtenir(config: dict, cle: str, defaut=None):
     return val
 
 
-def definir(config: dict, cle: str, valeur) -> dict:
+def definir(config:dict, cle: str, valeur) -> dict:
     """Définit une valeur par chemin pointé."""
     parts = cle.split(".")
     target = config
@@ -181,9 +162,6 @@ def definir(config: dict, cle: str, valeur) -> dict:
     return config
 
 
-# ---------------------------------------------------------------------------
-# Helpers internes
-# ---------------------------------------------------------------------------
 
 def _deep_copy(d):
     """Copie simple pour dicts imbriqués (JSON‑compatible)."""
@@ -196,4 +174,4 @@ def _fusionner(base, ajouts):
         if k in base and isinstance(base[k], dict) and isinstance(v, dict):
             _fusionner(base[k], v)
         else:
-            base[k] = v
+            base[k] =v

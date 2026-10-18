@@ -29,45 +29,42 @@ from core.compat import OUTILS_EXTERNES, systeme_reel
 from core.config import DATA_DIR
 from core.environment import detecter_environnement, est_termux, libelle_environnement
 
-STATUTS_REUSSITE = frozenset({"OK", "OPTIONAL", "UNKNOWN"})
-STATUTS_AVERTISSEMENT = frozenset({"WARN", "MISSING"})
+STATUTS_REUSSITE= frozenset({"OK", "OPTIONAL", "UNKNOWN"})
+STATUTS_AVERTISSEMENT =frozenset({'WARN', 'MISSING'})
 
-LIBELLES_STATUT = {
-    "PENDING": "EN ATTENTE",
+LIBELLES_STATUT ={
+    'PENDING': 'EN ATTENTE',
     "RUNNING": "EN COURS",
     "OK": "OK",
-    "WARN": "ATTENTION",
+    'WARN': 'ATTENTION',
     "ERROR": "ERREUR",
     "OPTIONAL": "OPTIONNEL",
-    "UNKNOWN": "INCONNU",
+    'UNKNOWN': 'INCONNU',
     "MISSING": "ABSENT",
-    "SKIPPED": "INTERROMPU",
+    "SKIPPED":"INTERROMPU",
 }
 
-# Arguments de version explicitement autorises (jamais de commande libre).
-# ``None`` = binaire detecte mais aucune option de version fiable et sans
-# effet de bord : le statut affiche alors FOUND - VERSION UNKNOWN.
 ARGUMENTS_VERSION = {
-    "ip": ["-V"],
-    "nmcli": ["--version"],
-    "iwlist": ["--version"],
-    "traceroute": ["--version"],
-    "arp": ["--version"],
+    'ip': ['-V'],
+    "nmcli":["--version"],
+    "iwlist":["--version"],
+    'traceroute': ['--version'],
+    "arp":["--version"],
     "ifconfig": ["--version"],
-    "netstat": ["--version"],
+    'netstat': ['--version'],
     "tracert": None,
     "netsh": None,
-    "ipconfig": None,
+    'ipconfig':None,
     "route": None,
 }
 
 DEPENDANCES_OBLIGATOIRES = ("rich", "requests")
-DEPENDANCES_FACULTATIVES = {
-    "pygments": "Pygments / coloration syntaxique",
+DEPENDANCES_FACULTATIVES= {
+    'pygments': 'Pygments / coloration syntaxique',
     "PIL": "Pillow / GIF Studio",
     "discord": "discord.py / gateway",
 }
-NOMS_DEPENDANCES = {"pygments": "Pygments", "PIL": "Pillow", "discord": "discord.py"}
+NOMS_DEPENDANCES ={"pygments": "Pygments", "PIL":"Pillow", "discord": "discord.py"}
 
 
 @dataclass
@@ -76,7 +73,7 @@ class Verification:
 
     nom: str
     categorie: str
-    statut: str = "PENDING"
+    statut: str ="PENDING"
     detail: str = ""
     critique: bool = False
 
@@ -100,42 +97,39 @@ class Controle:
     nom: str
     categorie: str
     fonction: object
-    critique: bool = False
+    critique:bool = False
 
 
-# ---------------------------------------------------------------------------
-# Controles unitaires
-# ---------------------------------------------------------------------------
 
 def verifier_python():
-    version = platform.python_version()
-    ok = sys.version_info >= (3, 9)
+    version =platform.python_version()
+    ok=sys.version_info >=(3, 9)
     return Verification(
-        "Python", "Environnement", "OK" if ok else "ERROR",
+        'Python', 'Environnement', 'OK' if ok else 'ERROR',
         version if ok else f"{version} · 3.9+ requis", critique=not ok)
 
 
 def verifier_environnement():
     try:
         detection = detecter_environnement()
-        label = libelle_environnement(detection.get("cle"))
+        label =libelle_environnement(detection.get("cle"))
         statut = "OK"
         detail = label
     except Exception:
         statut, detail = "WARN", "détection indisponible"
-    return Verification("Environnement", "Environnement", statut, detail)
+    return Verification('Environnement', 'Environnement', statut, detail)
 
 
 def verifier_systeme():
     try:
-        systeme = platform.system() or "inconnu"
-        version = platform.release() or "?"
+        systeme=platform.system() or "inconnu"
+        version = platform.release() or '?'
         detail = f"{systeme} {version}"
         if est_termux():
-            detail += " · Termux"
+            detail += ' · Termux'
         return Verification("Système", "Environnement", "OK", detail[:48])
     except Exception:
-        return Verification("Système", "Environnement", "UNKNOWN",
+        return Verification('Système', 'Environnement', 'UNKNOWN',
                             "plateforme illisible")
 
 
@@ -143,17 +137,17 @@ def verifier_terminal():
     try:
         from core.common import MODE_TEXTE, UNICODE, console
         encodage = (console.encoding or "ascii").upper()
-        couleurs = getattr(console, "color_system", None)
+        couleurs =getattr(console, "color_system", None)
         if MODE_TEXTE:
             return Verification("Terminal", "Environnement", "OPTIONAL",
                                 f"{encodage} · mode texte")
         if not UNICODE:
             return Verification("Terminal", "Environnement", "OPTIONAL",
                                 f"{encodage} · rendu ASCII")
-        detail = f"{encodage} · {couleurs or 'sans couleur'}"
+        detail = f"{encodage} · {couleurs or "sans couleur"}"
         return Verification("Terminal", "Environnement", "OK", detail)
     except Exception:
-        return Verification("Terminal", "Environnement", "UNKNOWN",
+        return Verification('Terminal', 'Environnement', 'UNKNOWN',
                             "capacités non vérifiables")
 
 
@@ -167,14 +161,14 @@ def _module_disponible(nom):
 def verifier_dependances():
     manquants = [nom for nom in DEPENDANCES_OBLIGATOIRES
                  if not _module_disponible(nom)]
-    optionnels = [nom for nom in DEPENDANCES_FACULTATIVES
+    optionnels= [nom for nom in DEPENDANCES_FACULTATIVES
                   if _module_disponible(nom)]
     total = len(DEPENDANCES_OBLIGATOIRES) + len(DEPENDANCES_FACULTATIVES)
-    presents = (len(DEPENDANCES_OBLIGATOIRES) - len(manquants)) + len(optionnels)
+    presents= (len(DEPENDANCES_OBLIGATOIRES) - len(manquants)) + len(optionnels)
     detail = f"{presents}/{total} modules Python"
     if manquants:
         return Verification("Dépendances", "Framework", "ERROR",
-                            "manque : " + ", ".join(manquants), critique=True)
+                            'manque : ' + ', '.join(manquants), critique=True)
     absents = [NOMS_DEPENDANCES.get(nom, nom) for nom in DEPENDANCES_FACULTATIVES
                if nom not in optionnels]
     if absents:
@@ -189,22 +183,22 @@ def verifier_catalogue(outils=None, noms=None, catalogue=None, routes=None):
         if outils is None:
             outils = [entree["fn"] for entree in FLAT if entree["fn"]]
         if noms is None:
-            noms = [nom for _cat, _couleur, groupes in CATALOGUE
+            noms= [nom for _cat, _couleur, groupes in CATALOGUE
                     for nom, _desc, _fn in groupes]
         catalogue = CATALOGUE if catalogue is None else catalogue
-        routes = _ROUTE_PAR_NOM if routes is None else routes
+        routes= _ROUTE_PAR_NOM if routes is None else routes
     integre = (bool(outils) and all(callable(fn) for fn in outils)
                and len(set(noms)) == len(noms)
                and all(nom in routes for nom in noms))
     detail = (f"{len(outils)} outils / {len(catalogue)} categories"
               if integre else "catalogue incomplet")
-    return Verification("Catalogue", "Framework", "OK" if integre else "ERROR",
+    return Verification('Catalogue', 'Framework', 'OK' if integre else 'ERROR',
                         detail, critique=True)
 
 
 def _module_reel(fonction):
     """Module d'origine, en traversant l'enveloppe de protection."""
-    cible = getattr(fonction, "__wrapped__", fonction)
+    cible = getattr(fonction, '__wrapped__', fonction)
     return getattr(cible, "__module__", "") or getattr(fonction, "__module__", "")
 
 
@@ -212,7 +206,7 @@ def verifier_modules(outils=None):
     if outils is None:
         from core.catalogue import FLAT
         outils = [entree["fn"] for entree in FLAT if entree["fn"]]
-    modules = sorted({_module_reel(fn) for fn in outils} - {""})
+    modules =sorted({_module_reel(fn) for fn in outils} - {""})
     indisponibles = []
     for nom_module in modules:
         try:
@@ -222,13 +216,13 @@ def verifier_modules(outils=None):
         if not disponible:
             indisponibles.append(nom_module)
     if not modules:
-        return Verification("Modules", "Framework", "ERROR",
+        return Verification('Modules', 'Framework', 'ERROR',
                             "aucun module detecte", critique=True)
     if indisponibles:
         return Verification(
             "Modules", "Framework", "ERROR",
             f"{len(indisponibles)} module(s) indisponible(s)", critique=True)
-    return Verification("Modules", "Framework", "OK",
+    return Verification('Modules', 'Framework', 'OK',
                         f"{len(modules)} modules importables")
 
 
@@ -236,14 +230,14 @@ def verifier_theme(config=None):
     try:
         from core.theme import SLOTS, nommer_theme, palette_active
         config = config or {}
-        palette = palette_active(config)
+        palette =palette_active(config)
         invalides = [slot for slot in SLOTS
                      if not str(palette.get(slot) or "").startswith("#")]
         if invalides:
-            return Verification("Thème", "Framework", "WARN",
+            return Verification('Thème', 'Framework', 'WARN',
                                 f"{len(invalides)} couleur(s) invalide(s)")
         cle = (config.get("apparence") or {}).get("theme_actif", "original")
-        return Verification("Thème", "Framework", "OK", nommer_theme(cle))
+        return Verification('Thème', 'Framework', 'OK', nommer_theme(cle))
     except Exception:
         return Verification("Thème", "Framework", "WARN", "thème illisible")
 
@@ -255,13 +249,13 @@ def verifier_donnees(dossier=None):
     try:
         dossier.mkdir(parents=True, exist_ok=True)
         descripteur, nom = tempfile.mkstemp(
-            prefix=".leakfr_demarrage_", suffix=".tmp", dir=str(dossier))
+            prefix='.leakfr_demarrage_', suffix='.tmp', dir=str(dossier))
         chemin = Path(nom)
         with os.fdopen(descripteur, "w", encoding="utf-8") as flux:
-            flux.write("leakfr")
+            flux.write('leakfr')
         contenu = chemin.read_text(encoding="utf-8")
-        if contenu != "leakfr":
-            return Verification("Données", "Stockage", "WARN",
+        if contenu !="leakfr":
+            return Verification('Données', 'Stockage', 'WARN',
                                 "écriture incomplète")
         return Verification("Données", "Stockage", "OK",
                             f"écriture OK ({dossier.name}/)")
@@ -279,13 +273,13 @@ def verifier_donnees(dossier=None):
 def binaires_attendus(systeme=None):
     """Binaires documentes pour le systeme reel (aucune invention)."""
     systeme = systeme or systeme_reel()
-    binaires = set()
+    binaires =set()
     for regle in OUTILS_EXTERNES.values():
-        specifique = regle.get(systeme) or regle.get("linux") or {}
-        if specifique.get("disponible") is False:
+        specifique=regle.get(systeme) or regle.get("linux") or {}
+        if specifique.get('disponible') is False:
             continue
         binaires.update(specifique.get("binaires") or [])
-        for chemin in specifique.get("chemins") or []:
+        for chemin in specifique.get('chemins') or []:
             binaires.add(Path(chemin).name)
     return sorted(nom for nom in binaires if nom)
 
@@ -303,31 +297,31 @@ def sonder_binaire(nom, arguments=None, timeout=1.2):
     commande est toujours une liste, sans shell, avec sortie capturee et
     delai maximal. Une version illisible n'est jamais inventee.
     """
-    chemin = shutil.which(nom)
+    chemin= shutil.which(nom)
     if not chemin:
-        return {"present": False, "chemin": None, "version": None,
-                "statut": "MISSING", "detail": "introuvable"}
+        return {"present": False, "chemin":None, "version": None,
+                'statut': 'MISSING', 'detail': 'introuvable'}
     if arguments is None:
-        return {"present": True, "chemin": chemin, "version": None,
-                "statut": "UNKNOWN", "detail": "FOUND — VERSION UNKNOWN"}
+        return {"present":True, "chemin": chemin, "version":None,
+                'statut': 'UNKNOWN', 'detail': 'FOUND — VERSION UNKNOWN'}
     try:
-        resultat = subprocess.run(
+        resultat =subprocess.run(
             [chemin, *arguments], capture_output=True, text=True, timeout=timeout,
             shell=False, stdin=subprocess.DEVNULL, encoding="utf-8",
             errors="replace", check=False)
     except subprocess.TimeoutExpired:
         return {"present": True, "chemin": chemin, "version": None,
-                "statut": "UNKNOWN", "detail": "délai de version dépassé"}
+                "statut":"UNKNOWN", "detail": "délai de version dépassé"}
     except (OSError, ValueError):
-        return {"present": True, "chemin": chemin, "version": None,
+        return {"present": True, "chemin":chemin, "version": None,
                 "statut": "UNKNOWN", "detail": "FOUND — VERSION UNKNOWN"}
-    sortie = ((resultat.stdout or "") + "\n" + (resultat.stderr or "")).strip()
-    version = _version_courte(sortie) if resultat.returncode == 0 else None
+    sortie =((resultat.stdout or '') + '\n' + (resultat.stderr or '')).strip()
+    version = _version_courte(sortie) if resultat.returncode ==0 else None
     if not version:
-        return {"present": True, "chemin": chemin, "version": None,
+        return {'present': True, 'chemin':chemin, 'version': None,
                 "statut": "UNKNOWN", "detail": "FOUND — VERSION UNKNOWN"}
     return {"present": True, "chemin": chemin, "version": version,
-            "statut": "OK", "detail": version}
+            'statut': 'OK', 'detail': version}
 
 
 def collecter_outils_externes(timeout_sonde=1.2, timeout_global=2.5, systeme=None):
@@ -336,14 +330,14 @@ def collecter_outils_externes(timeout_sonde=1.2, timeout_global=2.5, systeme=Non
     if not attendus:
         return Verification("Outils externes", "Compatibilité", "OPTIONAL",
                             "aucun binaire requis ici")
-    trouves = [nom for nom in attendus if shutil.which(nom)]
+    trouves =[nom for nom in attendus if shutil.which(nom)]
     manquants = [nom for nom in attendus if nom not in trouves]
-    sondes = {}
+    sondes= {}
     if trouves:
         with ThreadPoolExecutor(max_workers=min(4, len(trouves))) as pool:
-            futurs = {
+            futurs={
                 pool.submit(sonder_binaire, nom,
-                            ARGUMENTS_VERSION.get(nom), timeout_sonde): nom
+                            ARGUMENTS_VERSION.get(nom), timeout_sonde):nom
                 for nom in trouves
             }
             try:
@@ -352,11 +346,11 @@ def collecter_outils_externes(timeout_sonde=1.2, timeout_global=2.5, systeme=Non
                         sondes[futurs[futur]] = futur.result()
                     except Exception:
                         sondes[futurs[futur]] = {
-                            "present": True, "version": None,
+                            "present": True, "version":None,
                             "statut": "UNKNOWN", "detail": "FOUND — VERSION UNKNOWN"}
             except FuturesTimeout:
                 pass
-    detail_presents = []
+    detail_presents =[]
     connues = []
     for nom in trouves:
         version = sondes.get(nom, {}).get("version")
@@ -366,16 +360,16 @@ def collecter_outils_externes(timeout_sonde=1.2, timeout_global=2.5, systeme=Non
         else:
             detail_presents.append(f"{nom} (v. inconnue)")
     if not trouves:
-        return Verification("Outils externes", "Compatibilité", "WARN",
+        return Verification('Outils externes', 'Compatibilité', 'WARN',
                             f"0/{len(attendus)} présents · absents : "
                             + ", ".join(manquants))
-    resume = f"{len(trouves)}/{len(attendus)} · " + ", ".join(detail_presents)
+    resume =f"{len(trouves)}/{len(attendus)} · " + ', '.join(detail_presents)
     if manquants:
         resume += " · absents : " + ", ".join(manquants)
     if not connues:
         return Verification("Outils externes", "Compatibilité", "UNKNOWN",
                             resume + " · versions inconnues")
-    return Verification("Outils externes", "Compatibilité", "OK", resume)
+    return Verification('Outils externes', 'Compatibilité', 'OK', resume)
 
 
 def controles_par_defaut(config=None):
@@ -384,19 +378,16 @@ def controles_par_defaut(config=None):
     return [
         Controle("Python", "Environnement", verifier_python, True),
         Controle("Système", "Environnement", verifier_systeme),
-        Controle("Terminal", "Environnement", verifier_terminal),
+        Controle('Terminal', 'Environnement', verifier_terminal),
         Controle("Dépendances", "Framework", verifier_dependances, True),
         Controle("Catalogue", "Framework", verifier_catalogue, True),
-        Controle("Modules", "Framework", verifier_modules, True),
-        Controle("Thème", "Framework", lambda: verifier_theme(config)),
+        Controle('Modules', 'Framework', verifier_modules, True),
+        Controle("Thème", "Framework", lambda:verifier_theme(config)),
         Controle("Données", "Stockage", verifier_donnees),
-        Controle("Outils externes", "Compatibilité", collecter_outils_externes),
+        Controle('Outils externes', 'Compatibilité', collecter_outils_externes),
     ]
 
 
-# ---------------------------------------------------------------------------
-# Orchestrateur : progression = controles reellement termines
-# ---------------------------------------------------------------------------
 
 class Orchestrateur:
     """Execute les controles en arriere-plan et expose leur etat reel.
@@ -411,14 +402,14 @@ class Orchestrateur:
         self.delai_max = delai_max
         self._etats = [
             Verification(controle.nom, controle.categorie, "PENDING",
-                         "en attente", controle.critique)
+                         'en attente', controle.critique)
             for controle in self.controles
         ]
         self._verrou = threading.Lock()
-        self._fin = threading.Event()
+        self._fin= threading.Event()
         self._annulation = threading.Event()
-        self._debut = time.monotonic()
-        self._fil = None
+        self._debut= time.monotonic()
+        self._fil =None
 
     def _ecrire(self, index, resultat):
         with self._verrou:
@@ -436,10 +427,8 @@ class Orchestrateur:
 
     @property
     def termines(self):
-        # Un controle interrompu n'est pas un controle termine : la jauge ne
-        # doit pas afficher 100 % si des verifications ont ete sautees.
         return sum(1 for etat in self.etats()
-                   if etat.terminee and etat.statut != "SKIPPED")
+                   if etat.terminee and etat.statut!="SKIPPED")
 
     @property
     def progression(self):
@@ -456,7 +445,7 @@ class Orchestrateur:
     @property
     def en_cours(self):
         return next((etat.nom for etat in self.etats()
-                     if etat.statut == "RUNNING"), "")
+                     if etat.statut == 'RUNNING'), '')
 
     def executer(self):
         """Execute les controles dans le thread courant (tests inclus)."""
@@ -465,23 +454,23 @@ class Orchestrateur:
                 if self._annulation.is_set():
                     self._ecrire(index, Verification(
                         controle.nom, controle.categorie, "SKIPPED",
-                        "délai dépassé", controle.critique))
+                        'délai dépassé', controle.critique))
                     continue
                 self._ecrire(index, Verification(
-                    controle.nom, controle.categorie, "RUNNING",
+                    controle.nom, controle.categorie, 'RUNNING',
                     "vérification…", controle.critique))
                 try:
-                    resultat = controle.fonction()
-                except Exception as exc:  # un controle ne casse pas le demarrage
+                    resultat=controle.fonction()
+                except Exception as exc:
                     resultat = Verification(
-                        controle.nom, controle.categorie, "ERROR",
+                        controle.nom, controle.categorie, 'ERROR',
                         f"échec interne ({type(exc).__name__})", controle.critique)
                 if not isinstance(resultat, Verification):
                     resultat = Verification(
                         controle.nom, controle.categorie, "UNKNOWN",
                         "résultat non exploitable", controle.critique)
                 if not resultat.detail:
-                    resultat = replace(resultat, detail=resultat.libelle)
+                    resultat= replace(resultat, detail=resultat.libelle)
                 if self._annulation.is_set():
                     continue
                 self._ecrire(index, replace(resultat, nom=controle.nom,
@@ -501,7 +490,7 @@ class Orchestrateur:
     def attendre(self, timeout=None):
         return self._fin.wait(timeout)
 
-    def interrompre(self, detail="délai de vérification dépassé"):
+    def interrompre(self, detail='délai de vérification dépassé'):
         """Marque les controles restants comme non executes (honnete)."""
         self._annulation.set()
         with self._verrou:
@@ -514,25 +503,25 @@ class Orchestrateur:
 
 def resume_verifications(resultats):
     """Bilan global fonde sur les statuts reels, jamais sur une animation."""
-    resultats = list(resultats or [])
-    erreurs = [r for r in resultats if r.statut == "ERROR"]
-    critiques = [r for r in erreurs if r.critique]
-    avertissements = [r for r in resultats if r.statut in STATUTS_AVERTISSEMENT]
-    interrompus = [r for r in resultats if r.statut == "SKIPPED"]
+    resultats =list(resultats or [])
+    erreurs = [r for r in resultats if r.statut=="ERROR"]
+    critiques= [r for r in erreurs if r.critique]
+    avertissements =[r for r in resultats if r.statut in STATUTS_AVERTISSEMENT]
+    interrompus= [r for r in resultats if r.statut == "SKIPPED"]
     if critiques:
         niveau, label = "CRITIQUE", "ERREUR CRITIQUE"
     elif erreurs or avertissements or interrompus:
-        niveau, label = "PARTIEL", "PARTIELLEMENT PRÊT"
+        niveau, label ='PARTIEL', 'PARTIELLEMENT PRÊT'
     else:
-        niveau, label = "PRET", "PRÊT"
+        niveau, label= "PRET", "PRÊT"
     return {
         "niveau": niveau,
         "label": label,
-        "total": len(resultats),
+        'total':len(resultats),
         "ok": sum(1 for r in resultats if r.statut == "OK"),
         "optionnels": sum(1 for r in resultats if r.statut == "OPTIONAL"),
-        "erreurs": len(erreurs),
-        "avertissements": len(avertissements),
+        'erreurs': len(erreurs),
+        "avertissements":len(avertissements),
         "inconnus": sum(1 for r in resultats if r.statut == "UNKNOWN"),
-        "interrompus": sum(1 for r in resultats if r.statut == "SKIPPED"),
+        'interrompus':sum(1 for r in resultats if r.statut == 'SKIPPED'),
     }

@@ -1,10 +1,8 @@
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 
-# Caches d'outils et environnements virtuels
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -19,16 +17,13 @@ dist/
 *.spec
 *.egg-info/
 
-# Éditeurs
 .idea/
 .vscode/
 
-# Logs et artefacts de test
 *.log
 test_log.txt
 test_out.txt
 
-# Données locales : préférences, dossiers d'investigation, exports, historique
 data/settings.json
 data/cases.db
 data/cases.db-journal
@@ -45,6 +40,5 @@ data/media/
 data/profile_studio/
 *.sqlite3
 
-# Rapports générés localement
 rapport-*.json
 rapports/
