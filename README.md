@@ -22,7 +22,7 @@ LeakFr-Tools est une boîte à outils Python en ligne de commande pour les reche
 
 ## Captures d’écran
 
-Les images ci-dessous sont des **rendus statiques** de l’interface, générés depuis le code courant par `scripts/generate_screenshots.py` (Rich `export_svg`) : menu principal numérique, aperçu des sept catégories et un visuel de navigation par outil. Ce ne sont **pas** des captures d’exécution réelle : aucune sortie d’outil, aucun résultat réseau ni connexion Discord n’y figure. Elles doivent être régénérées après toute modification du catalogue ou des menus.
+Les images ci-dessous sont des **rendus statiques** de l’interface, générés depuis le code courant par `scripts/generate_screenshots.py` (Rich `export_svg`) : menu principal à flèches (avec le commit réel), aperçu des sept catégories et un visuel de navigation par outil. Ce ne sont **pas** des captures d’exécution réelle : aucune sortie d’outil, aucun résultat réseau ni connexion Discord n’y figure. Elles doivent être régénérées après toute modification du catalogue ou des menus.
 
 | Menu principal | Vue des catégories |
 |---|---|
@@ -42,7 +42,7 @@ Le menu conserve son catalogue d’origine : sept catégories dépliables et les
 | Utilitaires | [modules/utils/README.md](modules/utils/README.md) |
 | Astronomie | [modules/astro/README.md](modules/astro/README.md) |
 
-La recherche globale indexe le nom, la description, la catégorie et des alias fonctionnels (par exemple `tls`, `courriel`, `fuzzing` ou `subnet`) ; un résultat lance l’outil directement. Elle est accessible depuis le menu principal (« Recherche globale ») et reste disponible dans le tableau de bord `--dashboard` avec `/` ou `r`.
+La recherche globale indexe le nom, la description, la catégorie et des alias fonctionnels (par exemple `tls`, `courriel`, `fuzzing` ou `subnet`) ; un résultat lance l’outil directement. Elle est accessible depuis le menu principal (« Recherche globale », touche `/`) et avec `/` ou `r`.
 
 ### En un coup d’œil
 
@@ -68,7 +68,7 @@ Permissions Bot utiles selon l’opération : `Gérer les salons`, `Gérer les r
 
 ### Dossiers & rapports
 
-Le menu principal « Dossiers & rapports » ouvre les dossiers d’investigation (SQLite local) ; la touche `d` reste un raccourci du tableau de bord `--dashboard`. Chaque dossier regroupe notes, sources, preuves et exports JSON/Markdown ; la recherche globale retrouve aussi ces fonctions (`preuve`, `corrélation`).
+Le menu principal « Dossiers & rapports » ouvre les dossiers d’investigation (SQLite local) ; la touche `d` reste un raccourci du menu principal. Chaque dossier regroupe notes, sources, preuves et exports JSON/Markdown ; la recherche globale retrouve aussi ces fonctions (`preuve`, `corrélation`).
 
 - **Evidence Chain Ledger** : vous choisissez un fichier local ; le registre stocke son SHA-256, sa taille, la source déclarée, une note et la date UTC, chaîne chaque entrée à la précédente et journalise les vérifications. Le fichier n’est jamais modifié. Le registre reste local : il détecte une altération, une insertion ou la suppression d’une entrée intermédiaire, pas une réécriture complète avec recalcul des empreintes ni la suppression de la dernière entrée — conservez la tête de chaîne hors du dépôt pour renforcer la vérification.
 - **Finding Correlator** : normalise domaines, URL, adresses IP, e-mails et pseudos, regroupe les valeurs partagées avec leurs sources d’origine et distingue les correspondances exactes des rapprochements moins certains. Une correspondance technique n’établit pas l’identité d’une personne.
@@ -120,11 +120,14 @@ Un outil dont le binaire manque n’est jamais simulé : il affiche la commande 
 
 ## Sélection d’un outil
 
-La navigation est **entièrement numérique** sur tous les environnements : chaque menu affiche `[1] …`, `[2] …` et se pilote au clavier tactile d’Android comme au clavier physique. Aucun menu essentiel ne dépend des flèches directionnelles, de la souris ou d’un raccourci propre à Windows :
+Le **menu principal se pilote aux flèches** (haut/bas) dès qu’un vrai terminal est disponible : l’outil sélectionné est marqué par `❯`, les catégories se déploient avec `▾`/`▸`, et chaque ligne est tronquée pour ne jamais passer à la ligne. Le menu affiche aussi le **commit Git réel** du dépôt (`commit 2d9f6e4 · 2026-10-18 · main`), lu par `core/vcs.py`.
 
 | Entrée | Effet |
 |---|---|
-| `<numéro>` + Entrée | Lancer la catégorie, l’outil ou l’action numérotée |
+| `↑` / `↓` | Naviguer dans le catalogue (menu principal) |
+| `Entrée` | Ouvrir l’outil, la catégorie ou l’action sélectionnée |
+| `s` `/` `d` `h` `q` | Paramètres, recherche globale, dossiers, historique, quitter |
+| `<numéro>` + Entrée | Lancer la catégorie, l’outil ou l’action numérotée (sous-menus) |
 | `0` | Revenir au menu précédent ou annuler |
 | `00` | Quitter l’application depuis n’importe quel menu |
 | `98` / `99` | Page suivante / précédente dans les longues listes |
@@ -132,7 +135,7 @@ La navigation est **entièrement numérique** sur tous les environnements : chaq
 
 La recherche globale reste accessible depuis le menu principal (« Recherche globale ») : elle indexe le nom, la description, la catégorie et des alias fonctionnels (`tls`, `courriel`, `subnet`…).
 
-`--dashboard` réactive l’ancien tableau de bord à flèches sur un ordinateur de bureau. `--simple` (comportement par défaut) et les terminaux non interactifs utilisent toujours le parcours numérique catégorie puis outil. Options utiles :
+`--simple` force le parcours numérique (utile en pipe, dans une CI ou sur un clavier sans flèches) ; les terminaux non interactifs basculent automatiquement dessus. `--dashboard` est conservé pour compatibilité : le menu à flèches est désormais le comportement par défaut. Options utiles :
 
 ```bash
 python3 main.py --phone      # rendu mobile et pagination réduite
@@ -142,11 +145,11 @@ python3 main.py --env termux # force l'affichage Termux sans changer l'OS réel
 python3 main.py --bot        # démarre le bot Discord et le laisse en ligne
 ```
 
-L'introduction est une séquence animée en quatre phases (activation, révélation du logo, initialisation technique, bilan et transition), rendue avec `rich.live` : l'écran est réutilisé au lieu d'empiler des lignes. Le logo ASCII est révélé par un balayage diagonal, puis reste affiché dans le menu principal et dans le menu numérique (`core/branding.py`).
+L'écran de chargement est une **seule composition lisible** rendue avec `rich.live` : le logo (ou un titre court sur terminal étroit), la liste des vérifications réelles qui se remplissent, puis la jauge de progression. Ni bande de scan, ni décor animé, ni espace vide : la durée réelle est d'environ 0,6 s et la scène s'arrête dès que les contrôles sont terminés.
 
-Les contrôles affichés sont **réellement exécutés** en arrière-plan pendant l'animation : Python (≥ 3,9), système et Termux, capacités du terminal, dépendances obligatoires et optionnelles, intégrité du catalogue (outils appelables, noms uniques, routes), importabilité des modules, thème chargé, test d'écriture temporaire dans `data/` (fichier supprimé aussitôt) et présence des binaires externes documentés (`shutil.which`, puis commande de version explicite avec `shell=False` et délai maximal). Un binaire absent est signalé absent, une version illisible donne `VERSION UNKNOWN`, et un contrôle interrompu n'est jamais présenté comme réussi. La jauge et le pourcentage correspondent au nombre de contrôles **terminés**, pas à une durée simulée. La phase A affiche le système, la version de Python et les capacités du terminal **réellement mesurés**, la phase B le catalogue réel et l'état des contrôles en cours : aucune phase n'est purement décorative.
+Les contrôles affichés sont **réellement exécutés** pendant l'écran de chargement : Python (≥ 3,9), système et Termux, capacités du terminal, dépendances obligatoires et optionnelles, intégrité du catalogue (outils appelables, noms uniques, routes), importabilité des modules, thème chargé, test d'écriture temporaire dans `data/` (fichier supprimé aussitôt) et présence des binaires externes documentés (`shutil.which`, puis commande de version explicite avec `shell=False` et délai maximal). Un binaire absent est signalé absent, une version illisible donne `VERSION UNKNOWN`, et un contrôle interrompu n'est jamais présenté comme réussi. La jauge et le pourcentage correspondent au nombre de contrôles **terminés**, pas à une durée simulée. L'écran affiche le système, la version de Python et les capacités du terminal **réellement mesurés**, ainsi que le catalogue réel (outils et catégories comptés depuis le catalogue) : rien n'est décoratif.
 
-Le démarrage n'effectue aucun scan réseau, aucune connexion distante et aucune force brute. La durée par défaut est de 3,2 s (bornée à 4,5 s pour la séquence), réglable dans **Paramètres → Durée de l'introduction** (`0` = bannière instantanée). L'animation est ignorée en mode `--text`/`--no-color`, sur écran étroit ou avec `--phone`, lorsque les animations sont désactivées, et sans terminal interactif (redirection, pipe, CI) : un en-tête compact et des résultats lisibles restent affichés. Démarrer l'application ne dépend jamais de l'introduction.
+Le démarrage n'effectue aucun scan réseau, aucune connexion distante et aucune force brute. La durée maximale est de 3,2 s (bornée à 4,5 s), réglable dans **Paramètres → Durée de l'introduction** (`0` = bannière instantanée) ; l'écran de chargement s'achève dès que les contrôles réels sont terminés. Il est ignoré en mode `--text`/`--no-color`, avec `--no-intro`, sur écran étroit ou avec `--phone`, lorsque les animations sont désactivées, et sans terminal interactif (redirection, pipe, CI) : un en-tête compact et des résultats lisibles restent affichés. Démarrer l'application ne dépend jamais de l'écran de chargement.
 
 ## Installation
 
@@ -237,7 +240,7 @@ python3 main.py --version       # version affichée
 python3 main.py --text          # mode texte de secours
 python3 main.py --phone         # rendu mobile / terminal étroit
 python3 main.py --ascii         # polices ASCII uniquement
-python3 main.py --dashboard     # ancien tableau de bord à flèches (desktop)
+python3 main.py --simple        # force le menu numérique (sans flèches)
 python3 main.py --no-intro      # sauter l'introduction animée
 python3 main.py --env macos     # forcer l'environnement d'affichage
 python3 main.py --bot-interval 10  # actualisation de l'état du bot (1 à 300 s)
@@ -264,8 +267,9 @@ En cas d'échec, le diagnostic distingue token refusé (401), permissions insuff
 
 ## Architecture
 
-- `main.py` : navigation numérique, menus Rich et point d’entrée CLI.
-- `core/branding.py` : logo ASCII unique, dégradés et en-tête complet ou compact réutilisé par l’introduction et les menus.
+- `main.py` : navigation aux flèches (repli numérique), menus Rich et point d’entrée CLI.
+- `core/branding.py` : logo ASCII unique, dégradés, en-tête complet/compact et bandeau de menu.
+- `core/vcs.py` : commit Git réel (hash, date, branche, modifications locales) affiché dans les menus.
 - `core/startup.py` : séquence animée de démarrage (activation, révélation du logo, initialisation, bilan) rendue avec `rich.live`.
 - `core/startup_checks.py` : contrôles réels du démarrage, sondes de version bornées et orchestrateur en arrière-plan.
 - `core/environment.py` : détection Windows/Linux/Termux/macOS et sélection d’affichage.
@@ -306,9 +310,9 @@ python3 main.py --help
 
 Les utilitaires, dont le corpus de cas limites HTTP, fonctionnent localement sans dépendance supplémentaire. Le corpus produit uniquement des fixtures JSON (aucune requête réseau). Le générateur de mots de passe masque le secret par défaut ; l’affichage ou la copie au presse-papiers sont des choix explicites.
 
-La suite compte **234 tests** répartis par domaine (`test_bot_runner.py`, `test_catalogue_navigation.py`, `test_core_cases.py`, `test_cyber.py`, `test_discord.py`, `test_discord_personal.py`, `test_emoji_cloner.py`, `test_gateway_bot.py`, `test_intro_demarrage.py`, `test_media.py`, `test_osint_recon.py`, `test_outils_reels.py`, `test_pentest.py`, `test_platform_compat.py`, `test_profile_studio.py`, `test_secrets_et_ci.py`, `test_server_cloner.py`, `test_tasks.py`, `test_utils.py`). Le compte exact vient de l’exécution réelle (`python3 -m pytest -q`). Les tests multiplateformes vérifient la détection simulée de Termux/Windows/macOS, la navigation numérique, les menus en 40–44 colonnes, le refus explicite d’un outil absent et la conservation de `data/cases.db`. Ils s’exécutent sur l’hôte Linux de développement : **aucun test n’a été exécuté sur un téléphone Android réel dans Termux**, et les environnements Windows et macOS ne sont pas non plus exécutés localement (la CI les couvre, voir ci-dessous). Aucun test ne contacte de cible réelle ni Discord : les appels HTTP/API sont simulés ou limités à des serveurs locaux éphémères, la Gateway est testée avec un faux client `discord.py` (comptage du cache après `READY`, reconnexion temporaire, perte définitive, timeout sans fuite de thread, présence refusée) et aucun token réel n’est utilisé. Les tests dédiés (`test_secrets_et_ci.py`, `test_bot_runner.py`) vérifient aussi qu’aucun token n’apparaît dans les sorties, les journaux locaux ou les messages d’erreur.
+La suite compte **239 tests** répartis par domaine (`test_bot_runner.py`, `test_catalogue_navigation.py`, `test_core_cases.py`, `test_cyber.py`, `test_discord.py`, `test_discord_personal.py`, `test_emoji_cloner.py`, `test_gateway_bot.py`, `test_intro_demarrage.py`, `test_media.py`, `test_osint_recon.py`, `test_outils_reels.py`, `test_pentest.py`, `test_platform_compat.py`, `test_profile_studio.py`, `test_secrets_et_ci.py`, `test_server_cloner.py`, `test_tasks.py`, `test_utils.py`). Le compte exact vient de l’exécution réelle (`python3 -m pytest -q`). Les tests multiplateformes vérifient la détection simulée de Termux/Windows/macOS, la navigation numérique, les menus en 40–44 colonnes, le refus explicite d’un outil absent et la conservation de `data/cases.db`. Ils s’exécutent sur l’hôte Linux de développement : **aucun test n’a été exécuté sur un téléphone Android réel dans Termux**, et les environnements Windows et macOS ne sont pas non plus exécutés localement (la CI les couvre, voir ci-dessous). Aucun test ne contacte de cible réelle ni Discord : les appels HTTP/API sont simulés ou limités à des serveurs locaux éphémères, la Gateway est testée avec un faux client `discord.py` (comptage du cache après `READY`, reconnexion temporaire, perte définitive, timeout sans fuite de thread, présence refusée) et aucun token réel n’est utilisé. Les tests dédiés (`test_secrets_et_ci.py`, `test_bot_runner.py`) vérifient aussi qu’aucun token n’apparaît dans les sorties, les journaux locaux ou les messages d’erreur.
 
-Le workflow `.github/workflows/ci.yml` est versionné par Git : il installe les dépendances, compile tous les modules, vérifie les imports, le catalogue, la compatibilité, l’interface CLI (`--version`, `--help` avec `--no-intro` et `--bot`) et l’absence de références supprimées, puis exécute pytest sur **Ubuntu, Windows et macOS** avec **Python 3.9 et 3.12**. La matrice Linux a été rejouée localement dans des conteneurs officiels `python:3.9-slim` et `python:3.12-slim` (compilation et **190 tests** verts à cette date) ; la suite actuelle compte **234 tests**, exécutés localement sur Python 3.14 (dont la découverte automatique de cible SQLi/XSS/brute-force validée contre un serveur HTTP local éphémère, et `test_outils_reels.py` qui vérifie la clé API NASA, la détection réseau réelle et interdit le retour des phrases de simulation). Aucun run GitHub Actions n’a en revanche pu être consulté, et Windows/macOS ne sont pas exécutés localement. Termux/Android n’est pas simulé depuis Linux : un contrôle sur un appareil Android réel reste nécessaire. Les modules en ligne nécessitent des tests d’intégration séparés, avec des comptes de test et des cibles explicitement autorisées.
+Le workflow `.github/workflows/ci.yml` est versionné par Git : il installe les dépendances, compile tous les modules, vérifie les imports, le catalogue, la compatibilité, l’interface CLI (`--version`, `--help` avec `--no-intro` et `--bot`) et l’absence de références supprimées, puis exécute pytest sur **Ubuntu, Windows et macOS** avec **Python 3.9 et 3.12**. La matrice Linux a été rejouée localement dans des conteneurs officiels `python:3.9-slim` et `python:3.12-slim` (compilation et **190 tests** verts à cette date) ; la suite actuelle compte **239 tests**, exécutés localement sur Python 3.14 (dont la découverte automatique de cible SQLi/XSS/brute-force validée contre un serveur HTTP local éphémère, et `test_outils_reels.py` qui vérifie la clé API NASA, la détection réseau réelle et interdit le retour des phrases de simulation). Aucun run GitHub Actions n’a en revanche pu être consulté, et Windows/macOS ne sont pas exécutés localement. Termux/Android n’est pas simulé depuis Linux : un contrôle sur un appareil Android réel reste nécessaire. Les modules en ligne nécessitent des tests d’intégration séparés, avec des comptes de test et des cibles explicitement autorisées.
 
 ## Dépendances
 

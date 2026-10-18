@@ -5,8 +5,10 @@ une vraie socket locale ou s'en tiennent à des valeurs mesurées localement.
 """
 import importlib
 import json
+import re
 import shutil
 import socket
+import sys
 from pathlib import Path
 
 import pytest
@@ -122,6 +124,74 @@ def test_le_scan_reseau_ne_suppose_aucune_adresse_par_defaut(monkeypatch):
                         lambda label, defaut=None: demandes.append(defaut) or "")
     lan.scan_reseau_local()
     assert demandes == [None]
+
+
+ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b[()][B0]|\x1b\]0;[^\x07]*\x07")
+
+
+def _lancer_menu_reel(tmp_path, frappes, delai=1.2, timeout=25):
+    """Lance le vrai menu dans un pseudo-terminal et renvoie (code, sortie)."""
+    import os
+    import pty
+    import select
+    import subprocess
+    import time
+
+    maitre, esclave = pty.openpty()
+    environnement = dict(os.environ, LEAKFR_DATA_DIR=str(tmp_path),
+                         TERM="xterm-256color", COLUMNS="120", LINES="40",
+                         PYTHONIOENCODING="utf-8")
+    processus = subprocess.Popen(
+        [sys.executable, "main.py", "--no-intro", "--env", "linux"],
+        stdin=esclave, stdout=esclave, stderr=esclave, cwd=str(RACINE),
+        env=environnement, close_fds=True)
+    os.close(esclave)
+    sortie = bytearray()
+    debut = time.time()
+    envoye = False
+    try:
+        while time.time() - debut < timeout:
+            pret, _w, _x = select.select([maitre], [], [], 0.2)
+            if pret:
+                try:
+                    bloc = os.read(maitre, 65536)
+                except OSError:
+                    break
+                if not bloc:
+                    break
+                sortie.extend(bloc)
+            if not envoye and time.time() - debut >= delai:
+                for touche in frappes:
+                    os.write(maitre, touche)
+                    time.sleep(0.3)
+                envoye = True
+            if processus.poll() is not None and envoye:
+                break
+        if processus.poll() is None:
+            processus.terminate()
+            try:
+                processus.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                processus.kill()
+    finally:
+        os.close(maitre)
+    texte = ANSI.sub("", sortie.decode("utf-8", "replace"))
+    return processus.returncode, texte
+
+
+def test_le_menu_a_fleches_est_le_defaut_et_affiche_le_commit(tmp_path):
+    from core.vcs import info_commit
+
+    code, texte = _lancer_menu_reel(tmp_path,
+                                    [b"\x1b[B", b"\x1b[B", b"q"], timeout=30)
+    assert code == 0, texte[-2000:]
+    assert "CATALOGUE D'OUTILS" in texte
+    assert "VERIFICATIONS" not in texte  # plus d'ecran de chargement : intro sautee
+    info = info_commit()
+    assert info["court"] in texte, "le commit reel doit etre affiche dans le menu"
+    # La fleche bas deplace bien le curseur sur le deuxieme outil d'OSINT.
+    assert "Analyse d'email" in texte
+    assert "\u276f Analyse" in texte or "\u276f Recherche" in texte
 
 
 def test_scan_reseau_local_sur_loopback_reel(monkeypatch):

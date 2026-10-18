@@ -29,7 +29,7 @@ from rich.text import Text
 
 from core.branding import (
     BANNER_TAGLINE, SEGMENT_PLEIN, SEGMENT_VIDE, SPINNER, STRUCTURE,
-    couleurs_logo, en_tete, logo_revele, melange, sous_titre_revele,
+    couleurs_logo, en_tete, logo_final, logo_revele, melange, sous_titre_revele,
 )
 from core.common import obtenir_theme
 from core.startup_checks import (
@@ -98,43 +98,8 @@ def glyphe_statut(statut, t=0.0, unicode=True, palette=None):
 
 
 # ---------------------------------------------------------------------------
-# PHASE A - activation visuelle
+# Mesures reelles affichees par l'ecran de chargement
 # ---------------------------------------------------------------------------
-
-def mot_decode(mot, progression, t=0.0, palette=None, unicode=True):
-    """Mot dont les lettres se resolvent de gauche a droite."""
-    palette, vert, cyan = _couleurs(palette)
-    bruit = "\u2593\u2592\u2591#%&" if unicode else "#%@"
-    resolus = int(max(0.0, min(1.0, progression)) * (len(mot) + 2))
-    texte = Text()
-    for index, caractere in enumerate(mot):
-        if caractere == " ":
-            texte.append(" ")
-            continue
-        if index < resolus:
-            couleur = melange(vert, cyan, index / max(1, len(mot) - 1))
-            texte.append(caractere, style=f"bold {couleur}")
-        else:
-            texte.append(bruit[int(index * 7 + t * 12) % len(bruit)],
-                         style="grey30")
-    return texte
-
-
-def _bande_scan(largeur, position, palette=None, unicode=True):
-    palette, vert, cyan = _couleurs(palette)
-    bande = Text()
-    for x in range(largeur):
-        distance = abs(x - position)
-        if distance <= 1:
-            bande.append("\u2588" if unicode else "#", style="bold white")
-        elif distance <= 4:
-            bande.append("\u2593" if unicode else "=", style=f"bold {cyan}")
-        elif distance <= 8:
-            bande.append("\u2592" if unicode else "+", style=f"dim {vert}")
-        else:
-            bande.append(STRUCTURE if unicode else "-", style="grey19")
-    return bande
-
 
 def faits_machine(flux, largeur):
     """Mesures reelles affichees pendant la phase A (aucune valeur inventee)."""
@@ -162,63 +127,24 @@ def faits_controles(orch, maximum=3):
     return lignes
 
 
-def rendu_activation(progression=0.0, t=0.0, palette=None, unicode=True,
-                     largeur=48, message="initialisation du terminal", faits=()):
-    """Phase A : cadre, trame, mot-marque et mesures locales reelles."""
-    palette, vert, cyan = _couleurs(palette)
-    position = progression * (largeur + 10) - 5
-    marque = Text()
-    marque.append("\u25e4 " if unicode else "[ ", style=f"dim {cyan}")
-    marque.append_text(mot_decode("LEAKFR", progression, t, palette, unicode))
-    marque.append(" // TOOLS 2.0", style="dim")
-    marque.append(" \u25e5" if unicode else " ]", style=f"dim {cyan}")
-
-    regle = Text()
-    curseur = int(max(0, min(largeur - 1, position)))
-    regle.append("\u2501" * curseur, style=f"dim {vert}")
-    regle.append("\u25c6" if unicode else "+", style="bold white")
-    regle.append("\u2501" * max(0, largeur - curseur - 1), style=f"dim {vert}")
-
-    elements = [
-        Text(""),
-        Align.center(Text("[ ACTIVATION ]", style=f"bold {cyan}")),
-        Align.center(_bande_scan(largeur, position, palette, unicode)),
-        Align.center(regle),
-        Align.center(marque),
-        Align.center(Text(message, style="dim")),
-    ]
-    for fait in faits:
-        elements.append(Align.center(Text(fait, style="dim")))
-    elements.append(Text(""))
-    return Group(*elements)
-
-
 # ---------------------------------------------------------------------------
-# PHASE B - revelation du logo
+# Ecran de chargement : en-tete + controles reels, sans espace vide
 # ---------------------------------------------------------------------------
 
-def rendu_revelation(progression=0.0, t=0.0, palette=None, unicode=True,
-                     largeur=48, faits=()):
-    """Phase B : logo, sous-titre saisi et etat reel des controles."""
+def entete_chargement(palette=None, unicode=True, largeur=80, t=0.0):
+    """En-tete de l'ecran de chargement (logo si la place le permet)."""
     palette, vert, cyan = _couleurs(palette)
-    elements = [Text("")]
-    elements.extend(logo_revele(progression, t, palette, unicode))
-    elements.append(Align.center(sous_titre_revele(progression, palette)))
-    if progression >= 0.72:
+    if unicode and largeur >= 74:
+        elements = list(logo_final(t, palette, unicode))
+        elements.append(Align.center(sous_titre_revele(1.0, palette)))
         elements.append(Align.center(Text(
             BANNER_TAGLINE,
             style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-    else:
-        elements.append(Text(""))
-    for fait in faits:
-        elements.append(Align.center(Text(fait, style="dim")))
-    elements.append(Text(""))
-    return Group(*elements)
-
-
-# ---------------------------------------------------------------------------
-# PHASE C - initialisation technique liee aux controles reels
-# ---------------------------------------------------------------------------
+        return Group(*elements)
+    marque = Text(justify="center")
+    marque.append("LEAKFR", style=f"bold {vert}")
+    marque.append(" // TOOLS 2.0", style=f"bold {cyan}")
+    return Group(marque)
 
 def _ligne_controle(etat, t, palette, largeur, unicode=True):
     glyphe, style = glyphe_statut(etat.statut, t, unicode, palette)
@@ -286,10 +212,12 @@ def _panneau_systeme(t, palette, flux, unicode=True):
 
 def _pied_initialisation(orch, palette, largeur, unicode=True):
     palette, vert, cyan = _couleurs(palette)
-    jauge_largeur = max(12, min(40, largeur // 2))
-    texte = Text()
+    interne = max(20, int(largeur) - 4)
+    jauge_largeur = max(10, min(40, interne - 16))
+    texte = Text(no_wrap=True, overflow="ellipsis")
     texte.append_text(jauge(orch.progression, jauge_largeur, unicode, palette))
-    texte.append(f"   {orch.termines}/{orch.total} controles", style="bold white")
+    suffixe = " controles" if interne >= 48 else ""
+    texte.append(f"   {orch.termines}/{orch.total}{suffixe}", style="bold white")
     if orch.en_cours:
         texte.append(f"   {_spinner(time.monotonic() * 1.6)} {orch.en_cours}",
                      style=f"italic {cyan}")
@@ -302,6 +230,7 @@ def _pied_initialisation(orch, palette, largeur, unicode=True):
             note = Text("controles termines · ouverture du catalogue", style="dim")
     else:
         note = Text("verifications locales en cours d'execution", style="dim")
+    note = Text(_tronquer(note.plain, interne), style=note.style or "dim")
     texte.no_wrap = True
     note.no_wrap = True
     return Panel(Group(texte, note), box=box.SQUARE if unicode else box.ASCII,
@@ -312,78 +241,43 @@ def _pied_initialisation(orch, palette, largeur, unicode=True):
 
 def rendu_initialisation(orch, t=0.0, palette=None, largeur=80, hauteur=30,
                          flux=None, unicode=True):
-    """Phase C : composition large (Layout) ou compacte selon le terminal."""
+    """Ecran de chargement : en-tete, controles reels et progression reelle.
+
+    Composition compacte (Group) : pas de Layout plein ecran, donc aucun
+    espace vide entre le titre et les resultats.
+    """
     palette, vert, cyan = _couleurs(palette)
     flux = flux or _console_defaut()
-    compact = largeur < 84 or hauteur < 26
-    if compact:
-        entete = Text()
-        entete.append("LEAKFR", style=f"bold {vert}")
-        entete.append(" // INITIALISATION", style=f"dim {cyan}")
-        entete.append(f"   {orch.termines}/{orch.total}", style="bold white")
-        entete.append(f"   {t:4.1f}s", style="dim")
-        lignes = [entete, Text("")]
-        for etat in orch.etats():
-            lignes.append(_ligne_controle(etat, t, palette,
-                                          max(24, largeur - 4), unicode))
-        lignes.append(Text(""))
-        lignes.append(jauge(orch.progression, max(10, min(28, largeur - 12)),
-                            unicode, palette))
-        if orch.en_cours:
-            lignes.append(Text(f"{_spinner(t * 1.6, unicode)} {orch.en_cours}",
-                               style=f"italic {cyan}"))
-        return Group(*lignes)
-
-    marque = Text()
-    marque.append("LEAKFR", style=f"bold {vert}")
-    marque.append("  //  INITIALISATION", style=f"dim {cyan}")
-    compteurs = Text(f"{orch.termines}/{orch.total} controles", style="bold white")
-    compteurs.append(f"  |  {t:4.1f} s", style="dim")
-    entete_table = Table.grid(expand=True)
-    entete_table.add_column(justify="left")
-    entete_table.add_column(justify="right")
-    entete_table.add_row(marque, compteurs)
     boite = box.SQUARE if unicode else box.ASCII
-    panneau_entete = Panel(entete_table, box=boite, border_style=cyan,
-                           padding=(0, 1), title="[dim]BOOT SEQUENCE[/]",
-                           title_align="right")
+    largeur_panneau = max(30, min(int(largeur) - 2, 100))
 
-    controles = [_ligne_controle(etat, t, palette, max(24, largeur - 34), unicode)
-                 for etat in orch.etats()]
-    panneau_controles = Panel(
-        Group(*controles), box=boite, border_style=vert, padding=(0, 1),
-        title=f"[bold {vert}] VERIFICATIONS REELLES [/]", title_align="left")
-    panneau_systeme = _panneau_systeme(t, palette, flux, unicode)
+    parts = []
+    if hauteur >= 26 and largeur >= 60:
+        parts.append(entete_chargement(palette, unicode, largeur, t))
+        parts.append(Text(""))
 
-    corps = Table.grid(expand=True, padding=(0, 1))
-    corps.add_column(ratio=3)
-    corps.add_column(ratio=1)
-    corps.add_row(panneau_controles, panneau_systeme)
+    entete = Text(no_wrap=True, overflow="ellipsis")
+    entete.append("LEAKFR", style=f"bold {vert}")
+    entete.append("  //  BOOT" if largeur_panneau < 62 else "  //  CHARGEMENT",
+                  style=f"dim {cyan}")
+    if largeur_panneau >= 62:
+        entete.append(f"   {orch.termines}/{orch.total} controles", style="bold white")
+        entete.append(f"   {t:4.1f} s", style="dim")
+    parts.append(entete)
 
-    layout = Layout()
-    layout.split_column(
-        Layout(panneau_entete, size=3),
-        Layout(corps),
-        Layout(_pied_initialisation(orch, palette, largeur, unicode), size=4),
-    )
-    return layout
+    controles = [_ligne_controle(etat, t, palette, max(24, largeur_panneau - 6),
+                                 unicode) for etat in orch.etats()]
+    parts.append(Panel(Group(*controles), box=boite, border_style=vert,
+                       padding=(0, 1), width=largeur_panneau,
+                       title=f"[bold {vert}] VERIFICATIONS REELLES [/]",
+                       title_align="left"))
+    parts.append(_pied_initialisation(orch, palette, largeur_panneau, unicode))
+    return Group(*parts)
 
 
 def _console_defaut():
     from core.common import console
     return console
-
-
-def rendu_fermeture(progression=0.0, palette=None, unicode=True, largeur=48):
-    """Phase D : dernier balayage avant l'ouverture du menu."""
-    palette, vert, cyan = _couleurs(palette)
-    position = progression * (largeur + 12) - 6
-    lignes = [Text("")]
-    lignes.append(Align.center(Text(
-        "[ TRANSITION // OUVERTURE DU CATALOGUE ]", style=f"dim {cyan}")))
-    lignes.append(Align.center(_bande_scan(largeur, position, palette, unicode)))
-    lignes.append(Text(""))
-    return Group(*lignes)
 
 
 # ---------------------------------------------------------------------------
@@ -459,22 +353,12 @@ def rendu_final(resultats, config=None, t=0.0, palette=None, largeur=80,
 # Orchestration des phases
 # ---------------------------------------------------------------------------
 
-def _attendre_image(live, rendu, fin, intervalle=0.035):
-    while True:
-        maintenant = time.monotonic()
-        reste = fin - maintenant
-        if reste <= 0:
-            return
-        live.update(rendu(), refresh=True)
-        time.sleep(min(intervalle, max(0.005, reste)))
-
-
 def executer_sequence(config=None, duree=3.2, flux=None):
-    """Joue la sequence complete ; retourne les verifications reelles.
+    """Affiche l'ecran de chargement reel puis le bilan.
 
-    ``True`` (implicite) indique que l'ecran final a ete affiche. Toute
-    exception de rendu remonte a l'appelant, qui retombe sur la banniere
-    statique : le demarrage ne depend jamais de l'animation.
+    ``True`` indique que l'ecran final a ete affiche ; une exception de rendu
+    remonte a l'appelant, qui retombe sur la banniere statique : le demarrage
+    ne depend jamais de l'affichage.
     """
     from core.common import MODE_TEXTE, UNICODE as UNICODE_DISPO
     config = config or {}
@@ -484,18 +368,16 @@ def executer_sequence(config=None, duree=3.2, flux=None):
     largeur = max(30, int(flux.width or 80))
     hauteur = max(16, int(flux.height or 30))
     unicode = bool(UNICODE_DISPO) and not MODE_TEXTE
-    compact = largeur < 84 or hauteur < 26
 
     controles = controles_par_defaut(config)
     orchestrateur = Orchestrateur(controles)
     orchestrateur.lancer()
 
     budget = max(1.6, min(float(duree or 0.0), 4.5))
-    t_a = min(0.40, budget * 0.16)
-    t_b = min(0.95, budget * 0.30)
-    minimum_c = max(0.70, budget - t_a - t_b - 0.30)
+    # Temps minimal d'affichage de l'ecran de chargement : l'utilisateur voit
+    # les controles, sans attendre une duree inventee.
+    minimum = min(0.6, max(0.25, budget * 0.35))
     limite = time.monotonic() + budget + 4.0
-    debut = time.monotonic()
 
     def temps():
         return orchestrateur.ecoule
@@ -512,30 +394,11 @@ def executer_sequence(config=None, duree=3.2, flux=None):
                                        max(24, largeur - 2), unicode))
         return True
 
-    with Live(console=flux, refresh_per_second=20, transient=True,
+    # Ecran de chargement unique : les controles reels apparaissent au fur et
+    # a mesure, puis l'ecran de bilan remplace la scene.
+    with Live(console=flux, refresh_per_second=12, transient=True,
               auto_refresh=True) as live:
-        # PHASE A - activation
-        fin_a = time.monotonic() + t_a
-        _attendre_image(
-            live,
-            lambda: rendu_activation(
-                min(1.0, max(0.0, 1.0 - (fin_a - time.monotonic()) / max(0.01, t_a))),
-                temps(), palette, unicode, min(48, largeur - 8),
-                faits=faits_machine(flux, largeur)),
-            fin_a)
-
-        # PHASE B - revelation du logo
-        fin_b = time.monotonic() + t_b
-        _attendre_image(
-            live,
-            lambda: rendu_revelation(
-                min(1.0, max(0.0, 1.0 - (fin_b - time.monotonic()) / max(0.01, t_b))),
-                temps(), palette, unicode,
-                faits=faits_controles(orchestrateur)),
-            fin_b)
-
-        # PHASE C - initialisation technique reelle
-        fin_minimum = time.monotonic() + minimum_c
+        fin_minimum = time.monotonic() + minimum
         while True:
             if not orchestrateur.termine and time.monotonic() > limite:
                 orchestrateur.interrompre()
@@ -545,19 +408,10 @@ def executer_sequence(config=None, duree=3.2, flux=None):
                 refresh=True)
             if orchestrateur.termine and time.monotonic() >= fin_minimum:
                 break
-            time.sleep(0.04)
-
-        # PHASE D - dernier balayage
-        fin_d = time.monotonic() + 0.26
-        _attendre_image(
-            live,
-            lambda: rendu_fermeture(
-                min(1.0, max(0.0, 1.0 - (fin_d - time.monotonic()) / 0.26)),
-                palette, unicode, min(48, largeur - 8)),
-            fin_d, intervalle=0.028)
+            time.sleep(0.05)
 
     resultats = orchestrateur.etats()
     flux.clear()
     flux.print(rendu_final(resultats, config, temps(), palette, largeur,
-                           unicode, temps(), compact))
+                           unicode, temps(), largeur < 84 or hauteur < 26))
     return True

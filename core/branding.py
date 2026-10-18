@@ -164,6 +164,27 @@ def entete_compact(largeur=None, palette=None, info="", unicode=True):
                  title_align="left")
 
 
+def entete_bandeau(largeur=None, palette=None, info="", commit="", unicode=True):
+    """Bandeau du menu : toujours rempli (nom, info, commit), jamais vide.
+
+    Utilise quand le grand logo ne tient pas dans le terminal : le panneau
+    garde l'identite LEAKFR et affiche le commit reel du depot.
+    """
+    palette = palette or {}
+    vert, cyan = couleurs_logo(palette)
+    largeur = max(28, min(int(largeur or 78), 100))
+    boite = box.ROUNDED if unicode else box.ASCII
+    lignes = [Align.center(Text(_couper(info, largeur - 6), style="white"))]
+    if commit:
+        lignes.append(Align.center(Text(
+            _couper(commit, largeur - 6),
+            style=f"dim {palette.get('texte_secondaire', '#888888')}")))
+    return Panel(
+        Group(*lignes), box=boite, border_style=cyan, padding=(0, 1),
+        title=f"[bold {vert}] LEAKFR [/][dim {cyan}]//[/] [bold {cyan}]TOOLS {VERSION}[/]",
+        title_align="left")
+
+
 def en_tete(largeur=None, palette=None, info="", compact=False, unicode=True,
             t=0.0, logo=None):
     """En-tete reutilisable : logo complet ou bandeau compact.

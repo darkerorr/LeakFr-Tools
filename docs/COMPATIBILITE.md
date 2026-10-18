@@ -15,7 +15,7 @@ le système réellement détecté.
 | Fonction | Windows | Linux | Termux (Android) | macOS |
 |---|---|---|---|---|
 | Outils Python purs (OSINT, recon, cyber, utilitaires, astro, dossiers) | Non exécuté | **Testé sur l’hôte Linux** | Non exécuté sur téléphone | Non exécuté |
-| Navigation numérique, `0`/`00`, pagination | Non exécuté | **Testé** | Rendu `--phone` testé (largeur de terminal forcée) | Non exécuté |
+| Menu à flèches (défaut) + repli numérique, `0`/`00`, pagination | Non exécuté | **Testé** (vrai pseudo-terminal : flèches, Entrée, `q`) | Rendu `--phone` testé (largeur de terminal forcée) | Non exécuté |
 | Menus et tableaux en 40–44 colonnes | Non exécuté | **Testé** (`test_platform_compat.py`) | Largeur 40–44 colonnes forcée | Non exécuté |
 | Appels réseau TCP/UDP (recon, cyber, pentest) | Non exécuté | **Testé** : serveurs locaux + appels réels (DNS, HTTP, WHOIS) vers des domaines publics | Non exécuté | Non exécuté |
 | Sockets TLS / certificats | Non exécuté | **Testé sur certificats réels** (github.com, TLSv1.3) et sur sockets locales | Non exécuté | Non exécuté |
@@ -24,7 +24,7 @@ le système réellement détecté.
 | Photographie/GIF (Pillow) | Message explicite si absent | Message explicite si absent | Installation à valider | Message explicite si absent |
 | Gateway Discord (`discord.py`) | Message explicite si absent | Message explicite si absent | Optionnel, message explicite | Message explicite si absent |
 | Mode `--bot` (session en ligne) | Non exécuté (couvert par la CI) | **Testé avec un faux client `discord.py`** (aucun token réel) | Non exécuté sur téléphone | Non exécuté (couvert par la CI) |
-| Introduction et bannière de démarrage | Non exécuté (couvert par la CI) | **Testé** (phases adossées aux mesures réelles : système, Python, terminal, catalogue et contrôles ; modes texte/téléphone/interactif) | Rendu `--phone` et compact (largeur forcée) | Non exécuté (couvert par la CI) |
+| Écran de chargement et bannière | Non exécuté (couvert par la CI) | **Testé** (écran unique adossé aux mesures réelles : système, Python, terminal, catalogue et contrôles ; modes texte/téléphone/interactif) | Rendu `--phone` et compact (largeur forcée) | Non exécuté (couvert par la CI) |
 | En-tête LEAKFR dans les menus | Non exécuté (couvert par la CI) | **Testé** (logo complet, bandeau compact ≤ 44 colonnes) | Bandeau compact ≤ 44 colonnes (largeur forcée) | Non exécuté (couvert par la CI) |
 
 ## Binaires externes et correction

@@ -34,7 +34,8 @@ from rich.table import Table
 from rich.text import Text
 
 # Core & Helpers
-from core.branding import en_tete, logo_final
+from core.branding import en_tete, entete_bandeau, logo_final
+from core.vcs import info_commit, ligne_commit
 from core.common import (
     console, arc, texte_arc, bad, warn, ok, choisir_option, BX, UNICODE, INTERACTIF,
     CONN_T, CONN_L, PIPE, ARROW, MODE_TEXTE,
@@ -497,16 +498,18 @@ def _info_menu():
 
 
 def _afficher_entete_menu():
-    """En-tete LEAKFR commun au menu numerique (meme logo que l'intro)."""
+    """En-tete LEAKFR commun au menu numerique (meme logo que l'intro).
+
+    Le grand logo est utilise si la place le permet ; sinon un bandeau
+    toujours rempli affiche le resume et le commit reel du depot.
+    """
     palette = obtenir_theme()
-    # Le logo complet ne doit pas repousser les options hors de l'ecran.
-    compact = (est_ecran_etroit() or MODE_TEXTE or not UNICODE
-               or (console.height or 30) < 28)
+    largeur = min(largeur_utile(), 100)
+    hauteur = console.height or 30
+    if est_ecran_etroit() or MODE_TEXTE or not UNICODE:
+        hauteur = min(hauteur, 24)
     try:
-        console.print(en_tete(
-            largeur=largeur_utile(), palette=palette, info=_info_menu(),
-            compact=compact, unicode=UNICODE and not MODE_TEXTE,
-            t=time.time()))
+        console.print(_entete_menu(palette, largeur, hauteur, time.time()))
         console.print()
     except Exception:
         # L'en-tete ne doit jamais empecher le menu de s'afficher.
@@ -860,38 +863,51 @@ def recherche_globale():
     return libelles[selection]["num"] if selection else None
 
 
+def _tronquer_menu(texte, largeur):
+    """Tronque proprement une ligne de menu (jamais de retour a la ligne)."""
+    texte = " ".join(str(texte or "").split())
+    largeur = int(largeur)
+    if largeur <= 0:
+        return ""
+    if len(texte) <= largeur:
+        return texte
+    return texte[:max(1, largeur - 1)].rstrip() + "\u2026"
+
+
+def _entete_menu(palette, largeur, hauteur, t=0.0):
+    """En-tete du menu : logo complet si la place le permet, sinon bandeau.
+
+    Dans les deux cas la ligne de commit reelle est affichee et le bandeau
+    n'est jamais vide.
+    """
+    info = f"{_info_menu()}  ·  {ligne_commit()}"
+    if UNICODE and largeur >= 76 and hauteur >= 36:
+        elements = list(logo_final(t, palette, UNICODE))
+        elements.append(Align.center(Text(
+            BANNER_SOUS_TITRE, style=f"bold {palette.get('titres', C_GOLD)}")))
+        elements.append(Align.center(Text(
+            BANNER_TAGLINE,
+            style=f"dim {palette.get('texte_secondaire', '#888888')}")))
+        elements.append(Align.center(Text(
+            info, style=f"dim {palette.get('texte_secondaire', '#888888')}")))
+        return Group(*elements)
+    return entete_bandeau(largeur=min(int(largeur) - 2, 96), palette=palette,
+                          info=_info_menu(), commit=ligne_commit(), unicode=UNICODE)
+
+
 def construire_menu(sel, buf, t, msg="", tout=False):
     parts = []
     ui_cfg = obtenir_config_ui()
     palette = obtenir_theme()
     haut = console.height or 30
 
-    # Meme identite visuelle que l'introduction : logo complet si la hauteur
-    # le permet, sinon bandeau compact pour ne pas pousser les options hors
-    # de l'ecran.
+    # En-tete : logo complet si la place le permet, sinon bandeau toujours
+    # rempli (nom, resume et commit reel du depot).
     largeur_ecran = console.width or 80
-    if UNICODE and haut >= 40 and largeur_ecran >= 60:
-        parts.extend(logo_final(t, palette, UNICODE))
-        parts.append(Align.center(Text(
-            BANNER_SOUS_TITRE,
-            style=f"bold {palette.get('titres', C_GOLD)}")))
-        parts.append(Align.center(Text(
-            BANNER_TAGLINE,
-            style=f"dim {palette.get('texte_secondaire', '#888888')}")))
-    elif UNICODE and haut >= 32 and largeur_ecran >= 60:
-        # Hauteur moyenne : logo conserve, tagline omise pour garder les
-        # options visibles.
-        parts.extend(logo_final(t, palette, UNICODE))
-        parts.append(Align.center(Text(
-            BANNER_SOUS_TITRE,
-            style=f"bold {palette.get('titres', C_GOLD)}")))
-    else:
-        parts.append(Align.center(en_tete(
-            largeur=min(largeur_utile(), 88), palette=palette,
-            compact=True, unicode=UNICODE)))
+    parts.append(_entete_menu(palette, largeur_ecran, haut, t))
 
-    # Badges de categories au centre
-    badges = Text(justify="center")
+    # Badges de categories au centre (uniquement si la largeur le permet :
+    # jamais de ligne repliee dans le menu).
     badges_liste = [
         ("OSINT", C_OSINT),
         ("RECON", C_RECON),
@@ -901,71 +917,91 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         ("UTILS", C_UTIL),
         ("ASTRO", C_ASTRO),
     ]
-    if ui_cfg.get("afficher_badges_categories", True):
+    largeur_badges = sum(len(nom) + 2 for nom, _c in badges_liste) + 2 * (len(badges_liste) - 1)
+    if ui_cfg.get("afficher_badges_categories", True) and largeur_ecran >= largeur_badges + 4:
+        badges = Text(justify="center")
         for idx, (b_nom, b_col) in enumerate(badges_liste):
             badges.append(f" {b_nom} ", style=f"bold black on {b_col}")
             if idx < len(badges_liste) - 1:
                 badges.append("  ")
         parts.append(Align.center(badges))
         parts.append(Text(""))
+    else:
+        parts.append(Text(""))
 
     cat_sel = FLAT[sel]["cat"] if 0 <= sel < len(FLAT) else None
     item_sel = FLAT[sel] if 0 <= sel < len(FLAT) else None
 
-    # Construction de l'arbre (colonne de gauche)
-    arbre = [texte_arc(("* " if UNICODE else "* ") + "SUITE DE SECURITE & RECON", t, 0)]
-    ln = 0
+    # Largeurs calculees une seule fois : l'arbre est tronque pour ne jamais
+    # passer a la ligne (c'est ce qui cassait la lisibilite).
+    style_ui = ui_cfg.get("style_interface", "dashboard")
+    largeur_mode = ui_cfg.get("largeur_menu", "auto")
+    w_console = largeur_ecran
+    if largeur_mode == "large":
+        w_console = max(w_console, 115)
+    elif largeur_mode == "etroit":
+        w_console = min(w_console, 78)
+    afficher_side = bool(style_ui == "dashboard"
+                         and ui_cfg.get("afficher_panneau_lateral", True)
+                         and w_console >= 82 and not tout)
+    largeur_arbre = int(w_console * 0.64) if afficher_side else min(w_console, 88)
+    largeur_interne = max(24, largeur_arbre - 6)
+    largeur_nom = max(14, min(30, largeur_interne // 2))
+
+    ferme, ouvert_g = ("▸", "▾") if UNICODE else (">", "v")
+    puce, curseur = ("•", "❯") if UNICODE else ("-", ">")
+    accent = palette.get("principale", C_OSINT)
     categories_dynamiques = [
         palette.get("principale", C_OSINT), palette.get("secondaire", C_RECON),
         palette.get("erreurs", C_CYBER), palette.get("avertissements", C_PENTEST),
         palette.get("secondaire", C_DISCORD), palette.get("succes", C_UTIL),
         palette.get("principale", C_ASTRO),
     ]
-    style_ui = ui_cfg.get("style_interface", "dashboard")
+
+    def _ligne_item(texte_nom, texte_desc, actif, couleur_ligne):
+        ligne = Text(no_wrap=True, overflow="ellipsis")
+        ligne.append(f" {curseur if actif else puce} ",
+                     style=f"bold {accent}" if actif else "grey42")
+        nom_tronque = _tronquer_menu(texte_nom, largeur_nom)
+        if actif:
+            ligne.append(f"{nom_tronque:<{largeur_nom}}",
+                         style=f"bold black on {accent}")
+        else:
+            ligne.append(f"{nom_tronque:<{largeur_nom}}", style="white")
+        reste = max(10, largeur_interne - largeur_nom - 5)
+        ligne.append("  " + _tronquer_menu(texte_desc, reste),
+                     style="white" if actif else "grey50")
+        return ligne
+
+    arbre = [Text(" SUITE DE SECURITE & RECON", style=f"bold {accent}",
+                  no_wrap=True, overflow="ellipsis")]
     for ci, (cat, couleur_defaut, opts) in enumerate(CATALOGUE):
         couleur = categories_dynamiques[ci] if ci < len(categories_dynamiques) else couleur_defaut
-        ln += 1
         ouvert = tout or ci == cat_sel
-        l = texte_arc(CONN_T, t, ln * 4)
-        l.append(("v " if UNICODE else "v ") if ouvert else ("> " if UNICODE else "> "),
-                 style=f"bold {couleur}")
-        l.append(f"{cat:<16}", style=f"bold {couleur}")
-        l.append(f" [{len(opts)} modules]", style="grey50")
-        arbre.append(l)
+        ligne_cat = Text(no_wrap=True, overflow="ellipsis")
+        ligne_cat.append(f"{ouvert_g if ouvert else ferme} ", style=f"bold {couleur}")
+        ligne_cat.append(_tronquer_menu(f"{cat}", largeur_interne - 12),
+                         style=f"bold {couleur}")
+        ligne_cat.append(f"  {len(opts)}", style="grey50")
+        arbre.append(ligne_cat)
         if not ouvert:
             continue
-        items = [f for f in FLAT if f["cat"] == ci]
-        for oi, f in enumerate(items):
-            ln += 1
-            dernier = oi == len(items) - 1
-            l = texte_arc(PIPE, t, ln * 4)
-            l.append_text(texte_arc(CONN_L if dernier else CONN_T, t, ln * 4 + 4))
-            est_actif = (FLAT.index(f) == sel)
-            if est_actif:
-                l.append(f" {f['nom']} ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
-                l.append(f"  {f['desc']}", style="white")
-            else:
-                l.append(f"{f['nom']}", style="white")
-                l.append(f"  {f['desc']}", style="grey50")
-            arbre.append(l)
+        for f in [e for e in FLAT if e["cat"] == ci]:
+            actif = FLAT.index(f) == sel
+            arbre.append(_ligne_item(f["nom"], f["desc"], actif, couleur))
 
-    ln += 1
-    l = texte_arc(CONN_L, t, ln * 4)
     quit_idx = NUM_IDX["0"]
-    if sel == quit_idx:
-        l.append("  Quitter la suite ", style=f"bold black on {arc(ln * 4, t, 0.35)}")
-    else:
-        l.append(" Quitter", style="red")
-    arbre.append(l)
+    arbre.append(_ligne_item("Quitter la suite", "Fermer LeakFr-Tools", sel == quit_idx,
+                             palette.get("erreurs", C_CYBER)))
 
     boite_ui = box.SQUARE if style_ui == "classique" else (box.MINIMAL if style_ui == "compact" else BX)
-    couleur_bordure = palette.get("bordures", arc(0, t, 0.3))
+    couleur_bordure = palette.get("bordures", accent)
     panneau_arbre = Panel(
         Group(*arbre),
         box=boite_ui,
-        border_style=couleur_bordure if style_ui != "dashboard" else arc(0, t, 0.3),
+        border_style=couleur_bordure,
         padding=(0, 2),
-        title=texte_arc(" [ CATALOGUE D'OUTILS ] ", t, 0),
+        title="[ CATALOGUE D'OUTILS ]",
         title_align="left"
     )
 
@@ -1003,6 +1039,9 @@ def construire_menu(sel, buf, t, msg="", tout=False):
     side_elements.append(Text.from_markup(f"[bold white]h[/]       : Historique"))
     side_elements.append(Text.from_markup(f"[bold white]q[/]       : Quitter"))
 
+    for element in side_elements:
+        element.no_wrap = True
+        element.overflow = "ellipsis"
     panneau_side = Panel(
         Group(*side_elements),
         box=boite_ui,
@@ -1012,18 +1051,11 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         title_align="center"
     )
 
-    w_console = console.width or 100
-    afficher_side = (style_ui == "dashboard" and ui_cfg.get("afficher_panneau_lateral", True))
-    largeur_mode = ui_cfg.get("largeur_menu", "auto")
-    if largeur_mode == "large":
-        w_console = max(w_console, 115)
-    elif largeur_mode == "etroit":
-        w_console = min(w_console, 78)
-    if w_console >= 82 and not tout and afficher_side:
+    if afficher_side:
         layout_table = Table.grid(padding=(0, 1))
-        largeur_totale = min(w_console, 115)
+        largeur_totale = min(w_console, 118)
         w_main = int(largeur_totale * 0.64)
-        w_side = int(largeur_totale * 0.36)
+        w_side = int(largeur_totale * 0.34)
         panneau_arbre.width = w_main
         panneau_side.width = w_side
         layout_table.add_column()
@@ -1034,12 +1066,20 @@ def construire_menu(sel, buf, t, msg="", tout=False):
         panneau_arbre.width = min(w_console, 88)
         parts.append(Align.center(panneau_arbre))
 
-    if not tout and ui_cfg.get("afficher_aide_menu", True):
+    # La barre d'aide n'est affichee que si le panneau lateral (qui contient
+    # deja les raccourcis) est masque : plus de doublon a l'ecran.
+    if not tout and not afficher_side:
         parts.append(Text(""))
-        aide = Text("Fleches haut/bas : naviguer   Entree : executer   s : parametres   / : recherche   d : dossiers   q : quitter", justify="center")
+        aide = Text("Fleches : naviguer · Entree : executer · s : parametres · "
+                    "/ : recherche · d : dossiers · q : quitter", justify="center",
+                    no_wrap=True, overflow="ellipsis")
         if msg:
             aide.append(f"   ! {msg}", style="bold red")
-        parts.append(Align.center(Panel(aide, box=BX, border_style="grey42", width=min(w_console, 90))))
+        parts.append(Align.center(Panel(aide, box=BX, border_style="grey42",
+                                        width=min(w_console, 90))))
+    elif msg:
+        parts.append(Text(""))
+        parts.append(Align.center(Text(f"! {msg}", style="bold red")))
 
     return Group(*parts)
 
@@ -1233,9 +1273,10 @@ def main():
         epilog="Utilise les tests actifs uniquement sur des systèmes autorisés.",
     )
     parser.add_argument("--simple", action="store_true",
-                        help="force les menus numériques non interactifs (déjà par défaut)")
+                        help="force les menus numériques (sans navigation aux flèches)")
     parser.add_argument("--dashboard", action="store_true",
-                        help="active l'ancien tableau de bord à flèches (desktop uniquement)")
+                        help="menu a fleches (comportement par defaut ; conserve "
+                             "pour compatibilite)")
     parser.add_argument("--ascii", action="store_true", help="privilégie un affichage compatible ASCII")
     parser.add_argument("--text", "--no-color", dest="text", action="store_true",
                         help="mode texte simple, sans couleur ni animation")
@@ -1254,9 +1295,9 @@ def main():
     parser.add_argument("--version", action="version", version="LeakFr-Tools 2.0")
     args = parser.parse_args()
     global INTERACTIF, UNICODE, BX, CONN_T, CONN_L, PIPE
-    # Le parcours numérique est le comportement par défaut sur tous les OS.
-    INTERACTIF = (bool(args.dashboard) and not args.simple
-                  and sys.stdin.isatty() and sys.stdout.isatty())
+    # Menu a fleches par defaut des qu'un vrai terminal est disponible ; le
+    # menu numerique reste le repli (--simple, pipe, redirection, CI).
+    INTERACTIF = (not args.simple and sys.stdin.isatty() and sys.stdout.isatty())
     if args.ascii:
         UNICODE = False
         BX = box.ASCII

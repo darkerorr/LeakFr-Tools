@@ -10,9 +10,10 @@ from rich.console import Console
 import main
 from core import branding, startup_checks
 from core.startup import (
-    glyphe_statut, jauge, rendu_activation, rendu_final, rendu_initialisation,
-    rendu_revelation, executer_sequence,
+    entete_chargement, faits_controles, faits_machine, glyphe_statut, jauge,
+    rendu_final, rendu_initialisation, executer_sequence,
 )
+from core.vcs import info_commit, ligne_commit
 from core.startup_checks import (
     ARGUMENTS_VERSION, Controle, Orchestrateur, Verification,
     collecter_outils_externes, controles_par_defaut, resume_verifications,
@@ -81,7 +82,6 @@ def test_rendu_sans_unicode_n_utilise_aucun_caractere_de_dessin():
     orch = Orchestrateur([_controle("A")])
     orch.executer()
     sorties = [
-        _texte_rendu(rendu_activation(0.5, 0.1, unicode=False), 70, 24),
         _texte_rendu(rendu_initialisation(orch, 0.5, None, 100, 30,
                                           _console(100, 30)[0], unicode=False)),
         _texte_rendu(rendu_final([_ok()], {}, compact=False, unicode=False)),
@@ -97,11 +97,58 @@ def test_jauge_reflete_le_ratio_reel_des_controles():
     assert "  0%" in _texte_rendu(jauge(0.0, 20))
 
 
-def test_les_phases_se_rendent_sans_depasser_la_largeur():
-    for largeur in (60, 80, 120):
-        for rendu in (rendu_activation(0.5, 0.2), rendu_revelation(1.0, 0.2)):
-            sortie = _texte_rendu(rendu, largeur=largeur)
-            assert max(len(ligne.rstrip()) for ligne in sortie.splitlines()) <= largeur
+def test_l_ecran_de_chargement_ne_depasse_jamais_la_largeur():
+    orch = Orchestrateur([_controle("A")])
+    orch.executer()
+    for largeur, hauteur in ((44, 16), (60, 20), (80, 24), (120, 42)):
+        rendu = rendu_initialisation(orch, 0.5, None, largeur, hauteur,
+                                     _console(largeur, hauteur)[0])
+        sortie = _texte_rendu(rendu, largeur=largeur, hauteur=hauteur)
+        assert max(len(ligne.rstrip()) for ligne in sortie.splitlines()) <= largeur
+
+
+def test_l_ecran_de_chargement_affiche_les_controles_reels_et_la_progression():
+    orch = Orchestrateur([_controle(
+        "Python", lambda: Verification("Python", "Environnement", "OK", "3.14.4"))])
+    orch.executer()
+    sortie = _texte_rendu(rendu_initialisation(orch, 0.4, None, 100, 30,
+                                               _console(100, 30)[0]), 100, 30)
+    assert "VERIFICATIONS REELLES" in sortie
+    assert "PROGRESSION REELLE" in sortie
+    assert "3.14.4" in sortie
+    assert "100%" in sortie
+    assert "1/1" in sortie
+
+
+def test_l_en_tete_de_chargement_montre_le_logo_ou_un_titre_court():
+    large = _texte_rendu(entete_chargement(largeur=100), 100, 30)
+    assert all(ligne.strip() in large for ligne in branding.BANNER)
+    etroit = _texte_rendu(entete_chargement(largeur=48), 48, 20)
+    assert "LEAKFR // TOOLS 2.0" in etroit
+    assert branding.BANNER[0] not in etroit
+
+
+def test_les_faits_de_chargement_sont_mesures_et_non_inventes():
+    console, _flux = _console(100, 30)
+    faits = faits_machine(console, 100)
+    assert any(str(console.width) in fait for fait in faits)
+    assert any("python" in fait.lower() for fait in faits)
+    orch = Orchestrateur([_controle("Python", lambda: _ok("3.14.4"))])
+    orch.executer()
+    lignes = faits_controles(orch)
+    assert any("catalogue reel" in ligne for ligne in lignes)
+    assert any("controles reels" in ligne for ligne in lignes)
+
+
+def test_le_menu_affiche_le_commit_reel_du_depot():
+    info = info_commit()
+    ligne = ligne_commit(info)
+    assert info["court"] in ligne
+    if info["disponible"]:
+        assert len(info["court"]) >= 7
+        assert info["complet"].startswith(info["court"]) or info["court"] in info["complet"]
+    sortie = _texte_rendu(main.construire_menu(main.NUM_IDX["1"], "", 0.0), 120, 42)
+    assert "commit" in sortie.lower()
 
 
 # ---------------------------------------------------------------------------
